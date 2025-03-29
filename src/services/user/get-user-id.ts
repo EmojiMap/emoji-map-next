@@ -5,10 +5,13 @@ import { log } from '@/utils/log';
 
 export async function getUserId(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
+    let authHeader = request.headers.get('authorization');
     if (!authHeader) {
-      log.error('Unauthorized: No authorization header provided');
-      throw new Error('Unauthorized: Missing authorization header');
+      authHeader = request.headers.get('Authorization');
+      if (!authHeader) {
+        log.error('Unauthorized: No authorization header provided');
+        throw new Error('Unauthorized: Missing authorization header');
+      }
     }
 
     // Check if the authorization header has the right format
