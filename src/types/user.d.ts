@@ -5,5 +5,4 @@ export type UserResponse = {
     favorites?: Favorite[];
     ratings?: Rating[];
   };
-  status: number;
 };

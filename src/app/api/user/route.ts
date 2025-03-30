@@ -11,26 +11,7 @@ export async function GET(
   request: NextRequest
 ): Promise<NextResponse<UserResponse | ErrorResponse>> {
   try {
-    log.info('User API called, validating auth token...');
-    let userId;
-
-    try {
-      userId = await getUserId(request);
-      log.info(`Auth successful, userId: ${userId}`);
-    } catch (authError) {
-      log.error('Authentication failed in /api/user:', authError);
-      return NextResponse.json(
-        {
-          error: 'Authentication failed',
-          message:
-            authError instanceof Error
-              ? authError.message
-              : 'Unknown auth error',
-          timestamp: new Date().toISOString(),
-        },
-        { status: 401 }
-      );
-    }
+    const userId = await getUserId(request);
 
     // check if user exists in our database
     log.info(`Looking for user ${userId} in database...`);
@@ -58,10 +39,14 @@ export async function GET(
 
       log.info(`User ${userId} found, returning data`);
       // Make sure we're returning the exact structure expected by the Zod schema
-      return NextResponse.json({
-        user: dbUser,
-        status: 200,
-      });
+      return NextResponse.json(
+        {
+          user: dbUser,
+        },
+        {
+          status: 200,
+        }
+      );
     } catch (dbError) {
       log.error('Database error when fetching user:', dbError);
       return NextResponse.json(
@@ -89,28 +74,17 @@ export async function GET(
   }
 }
 
-export async function DELETE(request: NextRequest) {
-  try {
-    log.info('User deletion API called, validating auth token...');
-    let userId;
+type DeleteUserResponse = {
+  message: string;
+  userId: string;
+  timestamp: string;
+};
 
-    try {
-      userId = await getUserId(request);
-      log.info(`Auth successful, userId: ${userId}`);
-    } catch (authError) {
-      log.error('Authentication failed in /api/user/delete:', authError);
-      return NextResponse.json(
-        {
-          error: 'Authentication failed',
-          message:
-            authError instanceof Error
-              ? authError.message
-              : 'Unknown auth error',
-          timestamp: new Date().toISOString(),
-        },
-        { status: 401 }
-      );
-    }
+export async function DELETE(
+  request: NextRequest
+): Promise<NextResponse<DeleteUserResponse | ErrorResponse>> {
+  try {
+    const userId = await getUserId(request);
 
     // check if user exists in our database
     log.info(`Looking for user ${userId} in database...`);
@@ -165,6 +139,46 @@ export async function DELETE(request: NextRequest) {
         error: 'Unexpected error',
         message: error instanceof Error ? error.message : 'Unknown error',
         timestamp: new Date().toISOString(),
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const userId = await getUserId(request);
+
+    const { email, firstName, lastName } = await request.json();
+
+    const client = await clerkClient();
+    // update email first
+    await client.emailAddresses.createEmailAddress({
+      userId,
+      emailAddress: email,
+      primary: true,
+      verified: true,
+    });
+
+    // update name if provided
+    if (firstName || lastName) {
+      await client.users.updateUser(userId, {
+        firstName,
+        lastName,
+      });
+    }
+
+    return NextResponse.json({
+      message: 'User updated successfully',
+      userId: userId,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    log.error('Unexpected error in /api/user/patch:', error);
+    return NextResponse.json(
+      {
+        error: 'Unexpected error',
+        message: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }
     );

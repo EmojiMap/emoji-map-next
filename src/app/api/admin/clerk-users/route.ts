@@ -20,12 +20,19 @@ export async function GET(
   const searchParams = request.nextUrl.searchParams;
   const limit = parseInt(searchParams.get('limit') || '10', 10);
   const offset = parseInt(searchParams.get('offset') || '0', 10);
+  const query = searchParams.get('query')?.trim();
 
   try {
     const client = await clerkClient();
+
+    // If there's a search query, use Clerk's query parameter
     const response = await client.users.getUserList({
       limit,
       offset,
+      ...(query && {
+        query, // Clerk's API will search across userId, emailAddress, phoneNumber, username, firstName and lastName.
+        orderBy: '-created_at', // Most recent first to find newer matches
+      }),
     });
 
     return NextResponse.json({

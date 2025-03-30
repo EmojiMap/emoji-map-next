@@ -25,7 +25,7 @@ export async function fetchDetails(id: string) {
       'name',
       'rating',
       'reviews',
-      'priceLevel', // missing but should be ok?
+      'priceLevel',
       'userRatingCount',
       'currentOpeningHours.openNow',
       'primaryTypeDisplayName.text',
@@ -33,8 +33,8 @@ export async function fetchDetails(id: string) {
       'takeout',
       'delivery',
       'dineIn',
-      'editorialSummary.text', //  missing (should be ok?)
-      'outdoorSeating', // missing (should be ok?)
+      'editorialSummary.text',
+      'outdoorSeating',
       'liveMusic',
       'menuForChildren',
       'servesDessert',

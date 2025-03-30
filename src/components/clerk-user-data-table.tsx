@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { MoreHorizontal, Search } from 'lucide-react';
+import { useDebounce } from 'react-use';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -44,6 +45,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import type { AdminClerkUsersResponse } from '@/types/admin-clerk-users';
 import type { AdminClerkUsersToggleAdminStatusResponse } from '@/types/admin-clerk-users-toggle-admin-status';
 import type { ErrorResponse } from '@/types/error-response';
 import { ClerkUserDetailsDialog } from './clerk-user-details-dialog';
@@ -59,21 +61,77 @@ interface ClerkUserDataTableProps {
   onPaginationChange: (limit: number, offset: number) => void;
 }
 
-// TODOs for follow up PR:
-// Search index userids
-// invalidate query on success of make admin call
 export function ClerkUserDataTable({
   users,
   totalCount,
   limit,
   offset,
-  isLoading,
-  error,
+  isLoading: isInitialLoading,
+  error: initialError,
   onPaginationChange,
 }: ClerkUserDataTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+
+  // Setup debounced search term
+  useDebounce(
+    () => {
+      setDebouncedSearchTerm(searchTerm);
+    },
+    300,
+    [searchTerm]
+  );
+
+  // Filter users based on search term
+  const filteredUsers = searchTerm
+    ? users.filter(
+        (user) =>
+          // Search in user ID
+          user.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          // Search in email addresses
+          user.emailAddresses.some((email) =>
+            email.emailAddress.toLowerCase().includes(searchTerm.toLowerCase())
+          ) ||
+          // Search in username
+          (user.username &&
+            user.username.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          // Search in first name
+          (user.firstName &&
+            user.firstName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          // Search in last name
+          (user.lastName &&
+            user.lastName.toLowerCase().includes(searchTerm.toLowerCase()))
+      )
+    : users;
+
+  // Server-side search query when no local results found
+  const { isFetching: isSearching, data: searchData } =
+    useQuery<AdminClerkUsersResponse>({
+      queryKey: ['users', 'search', debouncedSearchTerm],
+      queryFn: async () => {
+        const searchParams = new URLSearchParams({
+          limit: limit.toString(),
+          offset: '0',
+          query: debouncedSearchTerm,
+        });
+
+        const response = await fetch(`/api/admin/clerk-users?${searchParams}`);
+        if (!response.ok) {
+          throw new Error('Failed to search users');
+        }
+
+        return response.json();
+      },
+      enabled: Boolean(debouncedSearchTerm && filteredUsers.length === 0),
+      retry: false,
+      gcTime: 0,
+    });
+
+  // Use search results if available, otherwise use filtered local data
+  const displayUsers = searchData?.users || filteredUsers;
+  const displayTotalCount = searchData?.totalCount ?? totalCount;
 
   // Mutation for toggling admin status
   const toggleAdminMutation = useMutation<
@@ -116,24 +174,8 @@ export function ClerkUserDataTable({
     },
   });
 
-  // Filter users based on search term
-  const filteredUsers = searchTerm
-    ? users.filter(
-        (user) =>
-          user.emailAddresses.some((email) =>
-            email.emailAddress.toLowerCase().includes(searchTerm.toLowerCase())
-          ) ||
-          (user.username &&
-            user.username.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (user.firstName &&
-            user.firstName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (user.lastName &&
-            user.lastName.toLowerCase().includes(searchTerm.toLowerCase()))
-      )
-    : users;
-
   const currentPage = Math.floor(offset / limit) + 1;
-  const totalPages = Math.ceil(totalCount / limit);
+  const totalPages = Math.ceil(displayTotalCount / limit);
 
   // Handle page change
   const handlePageChange = (page: number) => {
@@ -222,17 +264,55 @@ export function ClerkUserDataTable({
     return items;
   };
 
-  // Render loading state
-  if (isLoading) {
+  // Update loading state to include search state
+  if (isInitialLoading || isSearching) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>Clerk Users</CardTitle>
-          <CardDescription>Loading users...</CardDescription>
+          <CardDescription>A list of all users in Clerk</CardDescription>
+
+          <div className='flex items-center gap-2 mt-4'>
+            <div className='relative flex-1'>
+              <Search className='absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground' />
+              <Input
+                type='search'
+                placeholder='Search users...'
+                className='w-full pl-8'
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <Button variant='outline' onClick={() => setSearchTerm('')}>
+              Reset
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className='flex items-center justify-center p-8'>
-            <div className='h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent'></div>
+          <div className='rounded-md border'>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>User ID</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead className='w-[50px]'>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow>
+                  <TableCell colSpan={5} className='h-24 text-center'>
+                    <div className='flex items-center justify-center'>
+                      <div className='h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent'></div>
+                      <span className='ml-2'>
+                        {isSearching ? 'Searching...' : 'Loading...'}
+                      </span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
           </div>
         </CardContent>
       </Card>
@@ -240,7 +320,7 @@ export function ClerkUserDataTable({
   }
 
   // Render error state
-  if (error) {
+  if (initialError) {
     return (
       <Card>
         <CardHeader>
@@ -249,7 +329,7 @@ export function ClerkUserDataTable({
         </CardHeader>
         <CardContent>
           <div className='bg-destructive/10 text-destructive p-4 rounded-md'>
-            {error.message}
+            {initialError.message}
           </div>
         </CardContent>
       </Card>
@@ -298,8 +378,9 @@ export function ClerkUserDataTable({
         <div className='rounded-md border'>
           <Table>
             <TableCaption>
-              Showing {offset + 1}-{Math.min(offset + users.length, totalCount)}{' '}
-              of {totalCount} users
+              Showing {offset + 1}-
+              {Math.min(offset + displayUsers.length, displayTotalCount)} of{' '}
+              {displayTotalCount} users
             </TableCaption>
             <TableHeader>
               <TableRow>
@@ -311,7 +392,7 @@ export function ClerkUserDataTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredUsers.length === 0 ? (
+              {displayUsers.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={5}
@@ -321,7 +402,7 @@ export function ClerkUserDataTable({
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredUsers.map((user) => (
+                displayUsers.map((user) => (
                   <TableRow
                     key={user.id}
                     className='cursor-pointer hover:bg-muted/60'

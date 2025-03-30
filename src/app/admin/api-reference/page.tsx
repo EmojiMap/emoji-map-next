@@ -17,8 +17,8 @@ export default function ApiReferencesPage() {
           endpoints={[
             {
               name: '/api/user',
-              description: 'Get user profile information',
-              methods: ['GET', 'DELETE'],
+              description: 'Get or Update user profile information',
+              methods: ['GET', 'DELETE', 'PATCH'],
             },
             {
               name: '/api/user/sync',

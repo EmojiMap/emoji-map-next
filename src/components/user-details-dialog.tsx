@@ -1,6 +1,9 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { Copy } from 'lucide-react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
@@ -109,6 +112,26 @@ export function UserDetailsDialog({
         </DialogHeader>
 
         <div className='grid grid-cols-2 gap-4 py-4'>
+          <div className='col-span-2'>
+            <h3 className='font-medium text-sm mb-2'>User ID</h3>
+            <div className='flex items-center gap-2'>
+              <code className='rounded bg-muted px-3 py-2 font-mono text-sm'>
+                {user.id}
+              </code>
+              <Button
+                variant='ghost'
+                size='icon'
+                className='h-8 w-8'
+                onClick={() => {
+                  navigator.clipboard.writeText(user.id);
+                  toast.success('User ID copied to clipboard');
+                }}
+              >
+                <Copy className='h-4 w-4' />
+                <span className='sr-only'>Copy user ID</span>
+              </Button>
+            </div>
+          </div>
           <div>
             <h3 className='font-medium text-sm'>Email</h3>
             <p className='text-sm'>{user.email}</p>

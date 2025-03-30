@@ -88,9 +88,6 @@ describe('ApiReferencesPage', () => {
 
     // Test User API endpoints
     expect(screen.getByText('/api/user')).toBeInTheDocument();
-    expect(
-      screen.getByText('Get user profile information')
-    ).toBeInTheDocument();
     expect(screen.getByText('/api/user/sync')).toBeInTheDocument();
     expect(screen.getByText('Sync user data')).toBeInTheDocument();
 

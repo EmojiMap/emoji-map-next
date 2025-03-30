@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { getUserId } from '@/services/user/get-user-id';
 import type { ErrorResponse } from '@/types/error-response';
+import type { UserResponse } from '@/types/user';
 import { log } from '@/utils/log';
 
 // Validation schemas
@@ -17,55 +18,6 @@ const ratingSchema = z.object({
 });
 const ratingsSchema = z.array(ratingSchema);
 
-// Rate limiting cache (simple in-memory solution)
-const rateLimits = new Map<string, { count: number; timestamp: number }>();
-const RATE_LIMIT_MAX = 10; // Max requests per minute
-const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
-
-// Helper functions
-async function checkRateLimit(userId: string): Promise<boolean> {
-  const now = Date.now();
-  const userRateLimit = rateLimits.get(userId);
-
-  if (!userRateLimit) {
-    rateLimits.set(userId, { count: 1, timestamp: now });
-    return true;
-  }
-
-  // Reset counter if window has passed
-  if (now - userRateLimit.timestamp > RATE_LIMIT_WINDOW_MS) {
-    rateLimits.set(userId, { count: 1, timestamp: now });
-    return true;
-  }
-
-  // Increment counter and check limit
-  if (userRateLimit.count >= RATE_LIMIT_MAX) {
-    return false;
-  }
-
-  userRateLimit.count += 1;
-  return true;
-}
-
-type SyncResponse = {
-  message: string;
-  result: {
-    favorites: {
-      processed: number;
-      created: number;
-      existing: number;
-      errors: number;
-    };
-    ratings: {
-      processed: number;
-      created: number;
-      existing: number;
-      updated: number;
-      errors: number;
-    };
-  };
-};
-
 /**
  * POST handler for syncing a user's favorites and ratings
  *
@@ -78,18 +30,9 @@ type SyncResponse = {
  */
 export async function POST(
   request: NextRequest
-): Promise<NextResponse<SyncResponse | ErrorResponse>> {
+): Promise<NextResponse<UserResponse | ErrorResponse>> {
   try {
     const userId = await getUserId(request);
-
-    // Apply rate limiting
-    const rateLimitPassed = await checkRateLimit(userId);
-    if (!rateLimitPassed) {
-      return NextResponse.json(
-        { error: 'Rate limit exceeded. Please try again later.' },
-        { status: 429 }
-      );
-    }
 
     // check if user exists in our database
     const dbUser = await prisma.user.findUnique({
@@ -136,72 +79,67 @@ export async function POST(
       const validatedFavorites = validateResult.data;
       result.favorites.processed = validatedFavorites.length;
 
-      try {
-        // Use transaction to ensure data consistency
-        await prisma.$transaction(async (tx) => {
-          // Get all place IDs to check
-          const placeIds = validatedFavorites.map((fav) => fav.placeId);
+      // Use transaction to ensure data consistency
+      await prisma.$transaction(async (tx) => {
+        // Get all place IDs to check
+        const placeIds = validatedFavorites.map((fav) => fav.placeId);
 
-          // Find existing places in one query
-          const existingPlaces = await tx.place.findMany({
-            where: {
-              id: {
-                in: placeIds,
-              },
+        // Find existing places in one query
+        const existingPlaces = await tx.place.findMany({
+          where: {
+            id: {
+              in: placeIds,
             },
-            select: { id: true },
-          });
-
-          const existingPlaceIds = new Set(existingPlaces.map((p) => p.id));
-
-          // Create missing places in bulk
-          const placesToCreate = placeIds
-            .filter((id) => !existingPlaceIds.has(id))
-            .map((id) => ({ id }));
-
-          if (placesToCreate.length > 0) {
-            await tx.place.createMany({
-              data: placesToCreate,
-              skipDuplicates: true,
-            });
-          }
-
-          // Find existing user favorites in one query
-          const existingFavorites = await tx.favorite.findMany({
-            where: {
-              userId,
-              placeId: {
-                in: placeIds,
-              },
-            },
-            select: { placeId: true },
-          });
-
-          const existingFavoriteIds = new Set(
-            existingFavorites.map((f) => f.placeId)
-          );
-          result.favorites.existing = existingFavoriteIds.size;
-
-          // Create missing favorites in bulk
-          const favoritesToCreate = validatedFavorites
-            .filter((fav) => !existingFavoriteIds.has(fav.placeId))
-            .map((fav) => ({
-              userId,
-              placeId: fav.placeId,
-            }));
-
-          if (favoritesToCreate.length > 0) {
-            await tx.favorite.createMany({
-              data: favoritesToCreate,
-              skipDuplicates: true,
-            });
-            result.favorites.created = favoritesToCreate.length;
-          }
+          },
+          select: { id: true },
         });
-      } catch (error) {
-        log.error('Error processing favorites', { error });
-        result.favorites.errors = result.favorites.processed;
-      }
+
+        const existingPlaceIds = new Set(existingPlaces.map((p) => p.id));
+
+        // Create missing places in bulk
+        const placesToCreate = placeIds
+          .filter((id) => !existingPlaceIds.has(id))
+          .map((id) => ({ id }));
+
+        if (placesToCreate.length > 0) {
+          await tx.place.createMany({
+            data: placesToCreate,
+            skipDuplicates: true,
+          });
+        }
+
+        // Find existing user favorites in one query
+        const existingFavorites = await tx.favorite.findMany({
+          where: {
+            userId,
+            placeId: {
+              in: placeIds,
+            },
+          },
+          select: { placeId: true },
+        });
+
+        const existingFavoriteIds = new Set(
+          existingFavorites.map((f) => f.placeId)
+        );
+        result.favorites.existing = existingFavoriteIds.size;
+
+        // Create missing favorites in bulk
+        const favoritesToCreate = validatedFavorites
+          .filter((fav) => !existingFavoriteIds.has(fav.placeId))
+          .map((fav) => ({
+            userId,
+            placeId: fav.placeId,
+          }));
+
+        if (favoritesToCreate.length > 0) {
+          await tx.favorite.createMany({
+            data: favoritesToCreate,
+            skipDuplicates: true,
+          });
+          result.favorites.created = favoritesToCreate.length;
+        }
+      });
     }
 
     // Process ratings
@@ -217,104 +155,107 @@ export async function POST(
       const validatedRatings = validateResult.data;
       result.ratings.processed = validatedRatings.length;
 
-      try {
-        // Use transaction to ensure data consistency
-        await prisma.$transaction(async (tx) => {
-          // Get all place IDs to check
-          const placeIds = validatedRatings.map((r) => r.placeId);
+      // Use transaction to ensure data consistency
+      await prisma.$transaction(async (tx) => {
+        // Get all place IDs to check
+        const placeIds = validatedRatings.map((r) => r.placeId);
 
-          // Find existing places in one query
-          const existingPlaces = await tx.place.findMany({
-            where: {
-              id: {
-                in: placeIds,
-              },
+        // Find existing places in one query
+        const existingPlaces = await tx.place.findMany({
+          where: {
+            id: {
+              in: placeIds,
             },
-            select: { id: true },
+          },
+          select: { id: true },
+        });
+
+        const existingPlaceIds = new Set(existingPlaces.map((p) => p.id));
+
+        // Create missing places in bulk
+        const placesToCreate = placeIds
+          .filter((id) => !existingPlaceIds.has(id))
+          .map((id) => ({ id }));
+
+        if (placesToCreate.length > 0) {
+          await tx.place.createMany({
+            data: placesToCreate,
+            skipDuplicates: true,
           });
+        }
 
-          const existingPlaceIds = new Set(existingPlaces.map((p) => p.id));
-
-          // Create missing places in bulk
-          const placesToCreate = placeIds
-            .filter((id) => !existingPlaceIds.has(id))
-            .map((id) => ({ id }));
-
-          if (placesToCreate.length > 0) {
-            await tx.place.createMany({
-              data: placesToCreate,
-              skipDuplicates: true,
-            });
-          }
-
-          // For ratings, we need to use upsert to handle both creation and updates
-          // We need to do this one by one since Prisma doesn't support bulk upserts
-          await Promise.all(
-            validatedRatings.map(async (rating) => {
-              try {
-                const upsertResult = await tx.rating.upsert({
-                  where: {
-                    userId_placeId: {
-                      userId,
-                      placeId: rating.placeId,
-                    },
-                  },
-                  update: {
-                    rating: rating.rating,
-                  },
-                  create: {
+        // For ratings, we need to use upsert to handle both creation and updates
+        // We need to do this one by one since Prisma doesn't support bulk upserts
+        await Promise.all(
+          validatedRatings.map(async (rating) => {
+            try {
+              const upsertResult = await tx.rating.upsert({
+                where: {
+                  userId_placeId: {
                     userId,
                     placeId: rating.placeId,
-                    rating: rating.rating,
                   },
-                  select: {
-                    id: true,
-                    // We use this to determine if it was an update or create operation
-                    createdAt: true,
-                    updatedAt: true,
-                  },
-                });
-
-                // If createdAt equals updatedAt, it's a new record
-                if (
-                  upsertResult.createdAt?.getTime() ===
-                  upsertResult.updatedAt?.getTime()
-                ) {
-                  result.ratings.created++;
-                } else {
-                  result.ratings.updated++;
-                }
-              } catch (error) {
-                result.ratings.errors++;
-                log.error('Error upserting rating', {
-                  error,
+                },
+                update: {
+                  rating: rating.rating,
+                },
+                create: {
                   userId,
                   placeId: rating.placeId,
-                });
+                  rating: rating.rating,
+                },
+                select: {
+                  id: true,
+                  // We use this to determine if it was an update or create operation
+                  createdAt: true,
+                  updatedAt: true,
+                },
+              });
+
+              // If createdAt equals updatedAt, it's a new record
+              if (
+                upsertResult.createdAt?.getTime() ===
+                upsertResult.updatedAt?.getTime()
+              ) {
+                result.ratings.created++;
+              } else {
+                result.ratings.updated++;
               }
-            })
-          );
-        });
-      } catch (error) {
-        log.error('Error processing ratings', { error });
-        result.ratings.errors = result.ratings.processed;
-      }
+            } catch (error) {
+              result.ratings.errors++;
+              log.error('Error upserting rating', {
+                error,
+                userId,
+                placeId: rating.placeId,
+              });
+            }
+          })
+        );
+      });
     }
 
-    // Prepare and return response with cache control headers
-    const response = NextResponse.json(
-      {
-        message: 'User synced',
-        result,
+    // Fetch updated user data
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        favorites: true,
+        ratings: true,
       },
-      { status: 200 }
-    );
+    });
 
-    // Add cache control headers
-    response.headers.set('Cache-Control', 'private, max-age=0, no-cache');
+    if (!updatedUser) {
+      log.error('Failed to fetch updated user data');
+      return NextResponse.json(
+        { error: 'Failed to fetch updated user data' },
+        { status: 500 }
+      );
+    }
 
-    return response;
+    return NextResponse.json({ user: updatedUser }, { status: 200 });
   } catch (error) {
+    if (error instanceof Error && error.message === 'Not authenticated') {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    }
     log.error('Error syncing user', { error });
     return NextResponse.json({ error: 'Error syncing user' }, { status: 500 });
   }

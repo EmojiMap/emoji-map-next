@@ -21,6 +21,18 @@ export const GOOGLE_PLACES_API_CONSOLE =
 export const GOOGLE_PLACES_API_DOCS =
   'https://developers.google.com/maps/documentation/places/web-service';
 
+export const GOOGLE_PLACES_API_PLACE_TYPES =
+  'https://developers.google.com/maps/documentation/places/web-service/place-types#table-a';
+
+export const GOOGLE_PLACES_API_TEXT_SEARCH =
+  'https://developers.google.com/maps/documentation/places/web-service/text-search';
+
+export const GOOGLE_PLACES_API_PLACE_DETAILS =
+  'https://developers.google.com/maps/documentation/places/web-service/place-details';
+
+export const GOOGLE_PLACES_API_PLACE_PHOTOS =
+  'https://developers.google.com/maps/documentation/places/web-service/place-photos';
+
 export const GOOGLE_PLACES_API_BILLING_CONSOLE =
   'https://console.cloud.google.com/billing/01DE2F-0ECD03-58ABA8/manage?authuser=1&invt=AbtLaA&project=trusty-stack-455018-b6&organizationId=890741334115';
 
