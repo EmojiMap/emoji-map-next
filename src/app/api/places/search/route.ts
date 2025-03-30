@@ -116,7 +116,8 @@ async function searchPlaces(
             ? CATEGORY_MAP_LOOKUP[params.keys[0]].emoji
             : getEmojiForTypes(
                 place.displayName?.text ?? '',
-                place.types ?? []
+                place.types ?? [],
+                params.keys ?? []
               ),
       })) ?? [];
 
