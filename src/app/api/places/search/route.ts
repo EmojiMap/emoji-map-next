@@ -8,6 +8,7 @@ import {
   DEFAULT_PRICE_LEVEL,
   PRICE_LEVEL_MAP,
 } from '@/services/places/details/validator/details-validator';
+import type { GooglePlace } from '@/types/google-places';
 import { getEmojiForTypes } from '@/utils/emoji/get-emoji-for-types';
 import { log } from '@/utils/log';
 import { generateCacheKey } from '@/utils/places/cache-utils';
@@ -54,11 +55,10 @@ const fields = [
   'places.priceLevel',
   'places.rating',
   'places.types',
+  'places.primaryType',
 ].join(',');
 
-async function searchPlaces(
-  params: RequestParameters
-): Promise<RequestResponse> {
+async function searchPlaces(params: RequestParameters): Promise<GooglePlace[]> {
   const placesClient = new v1.PlacesClient({
     apiKey: env.GOOGLE_PLACES_API_KEY,
   });
@@ -85,6 +85,7 @@ async function searchPlaces(
               (type) => type.includes('restaurant') || type.includes('coffee')
             )
           : includedTypes,
+      includedPrimaryTypes: SEARCH_CONFIG.DEFAULT_INCLUDED_TYPES,
       maxResultCount: params.maxResultCount,
     },
     {
@@ -96,35 +97,7 @@ async function searchPlaces(
     }
   );
 
-  const transformedResults =
-    results.places
-      ?.filter(
-        (place) =>
-          (!params.openNow ||
-            (params.openNow && place.currentOpeningHours?.openNow)) &&
-          (place.rating ?? 0) >= params.minimumRating &&
-          params.priceLevels.includes(
-            PRICE_LEVEL_MAP[place.priceLevel ?? DEFAULT_PRICE_LEVEL]
-          )
-      )
-      .map((place) => ({
-        id: place.id as string,
-        location:
-          place.location as RequestResponse['results'][number]['location'],
-        emoji:
-          params.keys?.length === 1
-            ? CATEGORY_MAP_LOOKUP[params.keys[0]].emoji
-            : getEmojiForTypes(
-                place.displayName?.text ?? '',
-                place.types ?? [],
-                params.keys ?? []
-              ),
-      })) ?? [];
-
-  return {
-    results: transformedResults,
-    count: transformedResults.length,
-  };
+  return (results.places ?? []) as GooglePlace[];
 }
 
 export async function POST(request: Request) {
@@ -135,27 +108,57 @@ export async function POST(request: Request) {
     return Response.json(validatedBody.error, { status: 400 });
   }
 
-  const cacheKey = generateCacheKey(validatedBody.data);
+  const params = validatedBody.data;
+  const cacheKey = generateCacheKey(params);
 
   try {
-    const results = await (validatedBody.data.bypassCache
-      ? { cacheHit: false, ...(await searchPlaces(validatedBody.data)) }
-      : retrieveOrCache<RequestResponse & { cacheHit: boolean }>(
+    const results = await (params.bypassCache
+      ? { cacheHit: false, places: await searchPlaces(params) }
+      : retrieveOrCache<{ places: GooglePlace[]; cacheHit: boolean }>(
           cacheKey,
           async () => ({
             cacheHit: false,
-            ...(await searchPlaces(validatedBody.data)),
+            places: await searchPlaces(params),
           })
         ));
 
-    return Response.json(results);
+    const transformedResults =
+      results?.places
+        .filter(
+          (place) =>
+            (!params.openNow ||
+              (params.openNow && place.currentOpeningHours?.openNow)) &&
+            (place.rating ?? 0) >= params.minimumRating &&
+            params.priceLevels.includes(
+              PRICE_LEVEL_MAP[place.priceLevel ?? DEFAULT_PRICE_LEVEL]
+            )
+        )
+        .map((place) => ({
+          id: place.id as string,
+          location:
+            place.location as RequestResponse['results'][number]['location'],
+          emoji:
+            params.keys?.length === 1
+              ? CATEGORY_MAP_LOOKUP[params.keys[0]].emoji
+              : getEmojiForTypes(
+                  place.displayName?.text ?? '',
+                  place.types ?? [],
+                  params.keys ?? []
+                ),
+        })) ?? [];
+
+    return Response.json({
+      cacheHit: results.cacheHit,
+      count: transformedResults.length,
+      results: transformedResults,
+    });
   } catch (e) {
     log.error(JSON.stringify(e));
 
     return Response.json({
-      results: [],
-      count: 0,
       cacheHit: false,
+      count: 0,
+      results: [],
     });
   }
 }

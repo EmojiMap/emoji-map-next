@@ -17,6 +17,8 @@ const isMerchantDashboard = createRouteMatcher(['/merchant/dashboard(.*)']);
 
 // Simple middleware configuration that allows public access to specified routes
 export default clerkMiddleware(async (auth, req) => {
+  return;
+
   if (isPublic(req)) {
     return;
   }

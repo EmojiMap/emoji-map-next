@@ -49,7 +49,7 @@ export async function getPlaceDetailsWithCache({
 
   // Cache the results
   await redis.set(cacheKey, details, {
-    ex: DETAILS_CONFIG.CACHE_EXPIRATION_TIME,
+    px: DETAILS_CONFIG.CACHE_EXPIRATION_TIME,
   });
 
   log.info(`[DETAILS] cache set`);

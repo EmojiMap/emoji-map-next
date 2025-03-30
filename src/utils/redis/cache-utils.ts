@@ -1,6 +1,7 @@
 import { Redis } from '@upstash/redis';
 import { SEARCH_CONFIG } from '@/constants/search';
 import { env } from '@/env';
+import { log } from '@/utils/log';
 
 const redis = new Redis({
   url: env.KV_REST_API_URL,
@@ -56,11 +57,15 @@ export async function retrieveOrCache<T>(
 ): Promise<T & { cacheHit: boolean }> {
   const result = await redis.get<T>(key);
 
-  if (result) return { ...result, cacheHit: true };
+  if (result) {
+    log.success(`[SEARCH - ${key}] Cache hit`);
+    return { ...result, cacheHit: true };
+  }
 
+  log.debug(`[SEARCH - ${key}] Cache miss`);
   const dataToCache = await retrieveFn();
-
-  await redis.set(key, dataToCache, { ex: ttl });
+  await redis.set(key, dataToCache, { px: ttl });
+  log.info(`[SEARCH - ${key}] cache set`);
 
   return { ...dataToCache, cacheHit: false };
 }

@@ -2,6 +2,7 @@ import { v1 } from '@googlemaps/places';
 import { describe, expect, test, vi, beforeEach, afterEach } from 'vitest';
 import { POST } from '@/app/api/places/search/route';
 import { CATEGORY_MAP_LOOKUP } from '@/constants/category-map';
+import type { GooglePlace } from '@/types/google-places';
 import { log } from '@/utils/log';
 import { retrieveOrCache } from '@/utils/redis/cache-utils';
 
@@ -14,19 +15,27 @@ vi.mock('@googlemaps/places', () => ({
           places: [
             {
               id: 'place-id-1',
-              displayName: { text: 'Test Place 1' },
+              displayName: { text: 'Test Place 1', languageCode: 'en' },
               location: { latitude: 37.775, longitude: -122.419 },
               types: ['restaurant', 'food'],
-              currentOpeningHours: { openNow: true },
+              currentOpeningHours: {
+                openNow: true,
+                periods: [],
+                weekdayDescriptions: ['Monday: 9:00 AM – 5:00 PM'],
+              },
               rating: 4.5,
               priceLevel: 'PRICE_LEVEL_MODERATE',
             },
             {
               id: 'place-id-2',
-              displayName: { text: 'Test Place 2' },
+              displayName: { text: 'Test Place 2', languageCode: 'en' },
               location: { latitude: 37.776, longitude: -122.418 },
               types: ['cafe', 'food'],
-              currentOpeningHours: { openNow: false },
+              currentOpeningHours: {
+                openNow: false,
+                periods: [],
+                weekdayDescriptions: ['Monday: 9:00 AM – 5:00 PM'],
+              },
               rating: 3.5,
               priceLevel: 'PRICE_LEVEL_EXPENSIVE',
             },
@@ -80,6 +89,14 @@ vi.mock('@/constants/category-map', () => ({
   },
 }));
 
+vi.mock('@/utils/emoji/get-emoji-for-types', () => ({
+  getEmojiForTypes: vi.fn((name: string, types: string[]) => {
+    if (types.includes('restaurant')) return '🍽️';
+    if (types.includes('cafe')) return '☕';
+    return '😶‍🌫️';
+  }),
+}));
+
 // Sample data
 const sampleLocation = {
   latitude: 37.7749,
@@ -90,19 +107,27 @@ const samplePlaceResponse = {
   places: [
     {
       id: 'place-id-1',
-      displayName: { text: 'Test Place 1' },
+      displayName: { text: 'Test Place 1', languageCode: 'en' },
       location: { latitude: 37.775, longitude: -122.419 },
       types: ['restaurant', 'food'],
-      currentOpeningHours: { openNow: true },
+      currentOpeningHours: {
+        openNow: true,
+        periods: [],
+        weekdayDescriptions: ['Monday: 9:00 AM – 5:00 PM'],
+      },
       rating: 4.5,
       priceLevel: 'PRICE_LEVEL_MODERATE',
     },
     {
       id: 'place-id-2',
-      displayName: { text: 'Test Place 2' },
+      displayName: { text: 'Test Place 2', languageCode: 'en' },
       location: { latitude: 37.776, longitude: -122.418 },
       types: ['cafe', 'food'],
-      currentOpeningHours: { openNow: false },
+      currentOpeningHours: {
+        openNow: false,
+        periods: [],
+        weekdayDescriptions: ['Monday: 9:00 AM – 5:00 PM'],
+      },
       rating: 3.5,
       priceLevel: 'PRICE_LEVEL_EXPENSIVE',
     },
@@ -254,21 +279,26 @@ describe('Places Search API', () => {
   });
 
   test('uses cache when available', async () => {
-    const cachedData = {
-      results: [
-        {
-          id: 'cached-id-1',
-          location: { latitude: 37.775, longitude: -122.419 },
-          emoji: '🍔',
+    const cachedPlaces: Partial<GooglePlace>[] = [
+      {
+        id: 'cached-id-1',
+        displayName: { text: 'Cached Place 1', languageCode: 'en' },
+        location: { latitude: 37.775, longitude: -122.419 },
+        types: ['restaurant'],
+        currentOpeningHours: {
+          openNow: true,
+          periods: [],
+          weekdayDescriptions: ['Monday: 9:00 AM – 5:00 PM'],
         },
-      ],
-      count: 1,
-      cacheHit: true,
-    };
+        rating: 4.5,
+        priceLevel: 'PRICE_LEVEL_MODERATE',
+      },
+    ];
 
-    (retrieveOrCache as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
-      cachedData
-    );
+    (retrieveOrCache as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      places: cachedPlaces,
+      cacheHit: true,
+    });
 
     const request = new Request('http://localhost/api/places/search', {
       method: 'POST',
@@ -282,7 +312,17 @@ describe('Places Search API', () => {
     const data = await response.json();
 
     expect(retrieveOrCache).toHaveBeenCalled();
-    expect(data).toEqual(cachedData);
+    expect(data).toEqual({
+      results: [
+        {
+          id: 'cached-id-1',
+          location: { latitude: 37.775, longitude: -122.419 },
+          emoji: '🍽️', // Since we're passing key: [1] which maps to restaurant emoji
+        },
+      ],
+      count: 1,
+      cacheHit: true,
+    });
   });
 
   test('bypasses cache when bypassCache is true', async () => {
