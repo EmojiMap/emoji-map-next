@@ -18,6 +18,12 @@ export default function LogoPage() {
       path: '/logo-no-background.png',
       fileName: 'logo-no-background.png',
     },
+    {
+      name: 'App Store QR Code',
+      description: 'QR Code for the App Store',
+      path: '/app-store-qr.png',
+      fileName: 'app-store-qr.png',
+    },
   ];
 
   const handleDownload = (path: string, fileName: string) => {
