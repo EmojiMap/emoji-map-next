@@ -110,7 +110,7 @@ export async function fetchPlacePhotos({
   // Cache the successfully fetched photos
   if (photos.length > 0) {
     await redis.set(cacheKey, photos, {
-      ex: PHOTOS_CONFIG.CACHE_EXPIRATION_TIME,
+      px: PHOTOS_CONFIG.CACHE_EXPIRATION_TIME,
     });
     log.info('Photos cached', { cacheKey, photoCount: photos.length });
   } else {

@@ -1,7 +1,26 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { roundCoordinate, normalizeLocation } from './cache-utils';
 
+// Mock Redis and env
+vi.mock('@upstash/redis', () => ({
+  Redis: vi.fn().mockImplementation(() => ({
+    get: vi.fn(),
+    set: vi.fn(),
+  })),
+}));
+
+vi.mock('@/env', () => ({
+  env: {
+    KV_REST_API_URL: 'https://test-url',
+    KV_REST_API_TOKEN: 'test-token',
+  },
+}));
+
 describe('Redis Cache Utilities', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   describe('roundCoordinate', () => {
     it('should round coordinates to the specified number of decimal places', () => {
       expect(roundCoordinate(40.7128, 2)).toBe(40.71);

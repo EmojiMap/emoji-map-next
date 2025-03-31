@@ -1,89 +1,101 @@
-import { NextResponse } from 'next/server';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { v1 } from '@googlemaps/places';
+import { describe, expect, test, vi, beforeEach, afterEach } from 'vitest';
 import { POST } from '@/app/api/places/search/route';
-import { redis } from '@/lib/redis';
+import { CATEGORY_MAP_LOOKUP } from '@/constants/category-map';
+import type { GooglePlace } from '@/types/google-places';
 import { log } from '@/utils/log';
+import { retrieveOrCache } from '@/utils/redis/cache-utils';
 
 // Mock dependencies
-vi.mock('next/server', () => {
-  const mockJson = vi.fn();
-
-  return {
-    NextResponse: {
-      json: mockJson,
-      __esModule: true,
-    },
-  };
-});
-
-vi.mock('@/lib/redis', () => ({
-  redis: {
-    get: vi.fn(),
-    set: vi.fn(),
+vi.mock('@googlemaps/places', () => ({
+  v1: {
+    PlacesClient: vi.fn().mockImplementation(() => ({
+      searchNearby: vi.fn().mockResolvedValue([
+        {
+          places: [
+            {
+              id: 'place-id-1',
+              displayName: { text: 'Test Place 1', languageCode: 'en' },
+              location: { latitude: 37.775, longitude: -122.419 },
+              types: ['restaurant', 'food'],
+              currentOpeningHours: {
+                openNow: true,
+                periods: [],
+                weekdayDescriptions: ['Monday: 9:00 AM – 5:00 PM'],
+              },
+              rating: 4.5,
+              priceLevel: 'PRICE_LEVEL_MODERATE',
+            },
+            {
+              id: 'place-id-2',
+              displayName: { text: 'Test Place 2', languageCode: 'en' },
+              location: { latitude: 37.776, longitude: -122.418 },
+              types: ['cafe', 'food'],
+              currentOpeningHours: {
+                openNow: false,
+                periods: [],
+                weekdayDescriptions: ['Monday: 9:00 AM – 5:00 PM'],
+              },
+              rating: 3.5,
+              priceLevel: 'PRICE_LEVEL_EXPENSIVE',
+            },
+          ],
+        },
+      ]),
+    })),
   },
+}));
+
+vi.mock('@/utils/redis/cache-utils', () => ({
+  retrieveOrCache: vi.fn().mockImplementation(async (_, fn) => {
+    const result = await fn();
+    return result;
+  }),
 }));
 
 vi.mock('@/env', () => ({
   env: {
-    GOOGLE_PLACES_URL: 'https://places.googleapis.com/v1',
     GOOGLE_PLACES_API_KEY: 'test-api-key',
+  },
+}));
+
+vi.mock('@/utils/log', () => ({
+  log: {
+    error: vi.fn(),
   },
 }));
 
 vi.mock('@/constants/category-map', () => ({
   CATEGORY_MAP: [
     {
-      key: 1,
-      name: 'Food',
-      emoji: '🍽️',
       primaryType: ['restaurant', 'food'],
-      keywords: ['restaurant', 'food'],
+      emoji: '🍽️',
     },
     {
-      key: 2,
-      name: 'Cafe',
+      primaryType: ['cafe', 'food'],
       emoji: '☕',
-      primaryType: ['cafe'],
-      keywords: ['cafe', 'coffee'],
-    },
-    {
-      key: 3,
-      name: 'Burger',
-      emoji: '🍔',
-      primaryType: ['burger_restaurant'],
-      keywords: ['burger', 'hamburger'],
-      examples: ["McDonald's", 'Burger King'],
-    },
-    {
-      key: 6,
-      name: 'Mexican',
-      emoji: '🌮',
-      primaryType: ['mexican_restaurant'],
-      keywords: ['burrito', 'taco'],
-      examples: ['Burrito Factory'],
-    },
-    {
-      key: 8,
-      name: 'Japanese',
-      emoji: '🍱',
-      primaryType: ['japanese_restaurant'],
-      keywords: ['sushi'],
-      examples: ['Sushi Express', 'sushi house'],
     },
   ],
-}));
-
-vi.mock('@/utils/log', () => ({
-  log: {
-    debug: vi.fn(),
-    success: vi.fn(),
-    error: vi.fn(),
-    warn: vi.fn(),
+  EMOJI_OVERRIDES: {},
+  CATEGORY_MAP_LOOKUP: {
+    1: {
+      primaryType: ['restaurant', 'food'],
+      emoji: '🍽️',
+    },
+    2: {
+      primaryType: ['cafe', 'food'],
+      emoji: '☕',
+    },
   },
 }));
 
-// Mock fetch
-global.fetch = vi.fn() as unknown as typeof fetch;
+vi.mock('@/utils/emoji/get-emoji-for-types', () => ({
+  getEmojiForTypes: vi.fn((name: string, types: string[]) => {
+    if (types.includes('restaurant')) return '🍽️';
+    if (types.includes('cafe')) return '☕';
+    return '😶‍🌫️';
+  }),
+}));
 
 // Sample data
 const sampleLocation = {
@@ -94,166 +106,198 @@ const sampleLocation = {
 const samplePlaceResponse = {
   places: [
     {
-      name: 'Test Place 1',
       id: 'place-id-1',
+      displayName: { text: 'Test Place 1', languageCode: 'en' },
+      location: { latitude: 37.775, longitude: -122.419 },
       types: ['restaurant', 'food'],
-      location: {
-        latitude: 37.775,
-        longitude: -122.419,
-      },
-      priceLevel: 'PRICE_LEVEL_MODERATE',
       currentOpeningHours: {
         openNow: true,
+        periods: [],
+        weekdayDescriptions: ['Monday: 9:00 AM – 5:00 PM'],
       },
+      rating: 4.5,
+      priceLevel: 'PRICE_LEVEL_MODERATE',
     },
     {
-      name: 'Test Place 2',
       id: 'place-id-2',
+      displayName: { text: 'Test Place 2', languageCode: 'en' },
+      location: { latitude: 37.776, longitude: -122.418 },
       types: ['cafe', 'food'],
-      location: {
-        latitude: 37.776,
-        longitude: -122.418,
-      },
-      priceLevel: 'PRICE_LEVEL_INEXPENSIVE',
       currentOpeningHours: {
         openNow: false,
+        periods: [],
+        weekdayDescriptions: ['Monday: 9:00 AM – 5:00 PM'],
       },
+      rating: 3.5,
+      priceLevel: 'PRICE_LEVEL_EXPENSIVE',
     },
   ],
 };
 
+const transformedResponse = {
+  results: [
+    {
+      id: 'place-id-1',
+      location: { latitude: 37.775, longitude: -122.419 },
+      emoji: '🍽️',
+    },
+    {
+      id: 'place-id-2',
+      location: { latitude: 37.776, longitude: -122.418 },
+      emoji: '☕',
+    },
+  ],
+  count: 2,
+  cacheHit: false,
+};
+
 describe('Places Search API', () => {
+  let mockSearchNearby: ReturnType<typeof vi.fn>;
+  let mockPlacesClient: { searchNearby: ReturnType<typeof vi.fn> };
+
   beforeEach(() => {
     vi.clearAllMocks();
-
-    // Setup NextResponse.json mock
-    (NextResponse.json as ReturnType<typeof vi.fn>).mockImplementation(
-      (data) => {
-        return { data };
+    mockSearchNearby = vi.fn().mockResolvedValue([samplePlaceResponse]);
+    mockPlacesClient = {
+      searchNearby: mockSearchNearby,
+    };
+    (v1.PlacesClient as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      () => mockPlacesClient
+    );
+    (retrieveOrCache as ReturnType<typeof vi.fn>).mockImplementation(
+      async (_, fn) => {
+        const result = await fn();
+        return result;
       }
     );
-
-    // Setup fetch mock to return sample data
-    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: async () => samplePlaceResponse,
-    });
   });
 
   afterEach(() => {
     vi.resetAllMocks();
   });
 
-  it('should validate request parameters', async () => {
-    // Mock NextResponse.json to return an error for invalid requests
-    (NextResponse.json as ReturnType<typeof vi.fn>).mockImplementationOnce(
-      (data, options) => {
-        return { data, status: options?.status || 200 };
-      }
-    );
-
-    // Missing required location parameter
+  test('validates request parameters', async () => {
     const invalidRequest = new Request('http://localhost/api/places/search', {
       method: 'POST',
       body: JSON.stringify({}),
     });
 
-    const invalidResponse = (await POST(invalidRequest)) as unknown as {
-      data: { error: string };
-      status: number;
-    };
-    expect(invalidResponse.data.error).toBe('Failed to process request');
-    expect(invalidResponse.status).toBe(500);
+    const response = await POST(invalidRequest);
+    const data = await response.json();
+    expect(response.status).toBe(400);
+    expect(data).toHaveProperty('issues');
+  });
 
-    // Valid request
-    const validRequest = new Request('http://localhost/api/places/search', {
+  test('handles successful search with default parameters', async () => {
+    const request = new Request('http://localhost/api/places/search', {
       method: 'POST',
       body: JSON.stringify({ location: sampleLocation }),
     });
 
-    await POST(validRequest);
-    expect(NextResponse.json).toHaveBeenCalled();
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toEqual(transformedResponse);
+
+    expect(mockSearchNearby).toHaveBeenCalledWith(
+      expect.objectContaining({
+        locationRestriction: expect.objectContaining({
+          circle: expect.objectContaining({
+            center: sampleLocation,
+          }),
+        }),
+      }),
+      expect.any(Object)
+    );
   });
 
-  it('should validate price levels', async () => {
-    // Mock NextResponse.json to return an error for invalid requests
-    (NextResponse.json as ReturnType<typeof vi.fn>).mockImplementationOnce(
-      (data, options) => {
-        return { data, status: options?.status || 200 };
-      }
-    );
-
-    // Invalid price level (outside 1-4 range)
-    const invalidRequest = new Request('http://localhost/api/places/search', {
-      method: 'POST',
-      body: JSON.stringify({
-        location: sampleLocation,
-        priceLevels: [0, 5],
-      }),
-    });
-
-    const invalidResponse = (await POST(invalidRequest)) as unknown as {
-      data: { error: string };
-      status: number;
-    };
-    expect(invalidResponse.data.error).toBe('Failed to process request');
-    expect(invalidResponse.status).toBe(500);
-
-    // Valid price levels
-    const validRequest = new Request('http://localhost/api/places/search', {
-      method: 'POST',
-      body: JSON.stringify({
-        location: sampleLocation,
-        priceLevels: [1, 2],
-      }),
-    });
-
-    await POST(validRequest);
-    expect(NextResponse.json).toHaveBeenCalled();
-  });
-
-  it('should check cache before making API requests', async () => {
-    // Mock cache hit
-    (redis.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
-      samplePlaceResponse.places
-    );
-
+  test('filters by openNow when specified', async () => {
     const request = new Request('http://localhost/api/places/search', {
       method: 'POST',
       body: JSON.stringify({
         location: sampleLocation,
-        keys: [1], // Single key for simplicity
+        openNow: true,
       }),
     });
 
-    await POST(request);
+    const response = await POST(request);
+    const data = await response.json();
 
-    // Should check cache
-    expect(redis.get).toHaveBeenCalled();
-    // Should not make API request when cache hit
-    expect(global.fetch).not.toHaveBeenCalled();
-    // Response should indicate cache hit
-    expect(NextResponse.json).toHaveBeenCalledWith({
-      cacheHit: true,
-      count: expect.any(Number),
-      results: expect.arrayContaining([
-        expect.objectContaining({
-          id: 'place-id-1',
-          emoji: expect.any(String),
-          location: expect.any(Object),
-        }),
-      ]),
-    });
+    expect(data.results).toHaveLength(1);
+    expect(data.results[0].id).toBe('place-id-1');
   });
 
-  it('should bypass cache when priceLevels is provided', async () => {
-    // Clear previous mocks
-    vi.clearAllMocks();
+  test('filters by minimumRating when specified', async () => {
+    const request = new Request('http://localhost/api/places/search', {
+      method: 'POST',
+      body: JSON.stringify({
+        location: sampleLocation,
+        minimumRating: 4.0,
+      }),
+    });
 
-    // Mock fetch to return sample data
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: async () => samplePlaceResponse,
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(data.results).toHaveLength(1);
+    expect(data.results[0].id).toBe('place-id-1');
+  });
+
+  test('filters by priceLevels when specified', async () => {
+    const request = new Request('http://localhost/api/places/search', {
+      method: 'POST',
+      body: JSON.stringify({
+        location: sampleLocation,
+        priceLevels: [2], // PRICE_LEVEL_MODERATE
+      }),
+    });
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(data.results).toHaveLength(1);
+    expect(data.results[0].id).toBe('place-id-1');
+  });
+
+  test('combines multiple filters correctly', async () => {
+    const request = new Request('http://localhost/api/places/search', {
+      method: 'POST',
+      body: JSON.stringify({
+        location: sampleLocation,
+        openNow: true,
+        minimumRating: 4.0,
+        priceLevels: [2],
+      }),
+    });
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(data.results).toHaveLength(1);
+    expect(data.results[0].id).toBe('place-id-1');
+  });
+
+  test('uses cache when available', async () => {
+    const cachedPlaces: Partial<GooglePlace>[] = [
+      {
+        id: 'cached-id-1',
+        displayName: { text: 'Cached Place 1', languageCode: 'en' },
+        location: { latitude: 37.775, longitude: -122.419 },
+        types: ['restaurant'],
+        currentOpeningHours: {
+          openNow: true,
+          periods: [],
+          weekdayDescriptions: ['Monday: 9:00 AM – 5:00 PM'],
+        },
+        rating: 4.5,
+        priceLevel: 'PRICE_LEVEL_MODERATE',
+      },
+    ];
+
+    (retrieveOrCache as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      places: cachedPlaces,
+      cacheHit: true,
     });
 
     const request = new Request('http://localhost/api/places/search', {
@@ -261,755 +305,193 @@ describe('Places Search API', () => {
       body: JSON.stringify({
         location: sampleLocation,
         keys: [1],
-        priceLevels: [2], // Only PRICE_LEVEL_MODERATE (2)
       }),
     });
 
-    await POST(request);
+    const response = await POST(request);
+    const data = await response.json();
 
-    // Verify API request was made (since cache is bypassed)
-    expect(global.fetch).toHaveBeenCalled();
-
-    // Verify response indicates cache miss and only includes places with matching price level
-    expect(NextResponse.json).toHaveBeenCalledWith({
-      cacheHit: false,
-      count: 1, // Only one place matches price level 2
+    expect(retrieveOrCache).toHaveBeenCalled();
+    expect(data).toEqual({
       results: [
-        expect.objectContaining({
-          id: 'place-id-1', // Only the moderate price level place
-          emoji: expect.any(String),
-          location: expect.any(Object),
-        }),
+        {
+          id: 'cached-id-1',
+          location: { latitude: 37.775, longitude: -122.419 },
+          emoji: '🍽️', // Since we're passing key: [1] which maps to restaurant emoji
+        },
       ],
+      count: 1,
+      cacheHit: true,
     });
   });
 
-  it('should not bypass cache when priceLevels contains all values [1,2,3,4]', async () => {
-    // Mock cache hit
-    (redis.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
-      samplePlaceResponse.places
-    );
-
+  test('bypasses cache when bypassCache is true', async () => {
     const request = new Request('http://localhost/api/places/search', {
       method: 'POST',
       body: JSON.stringify({
         location: sampleLocation,
-        keys: [1],
-        priceLevels: [1, 2, 3, 4], // All price levels
+        bypassCache: true,
       }),
     });
 
     await POST(request);
 
-    // Should check cache
-    expect(redis.get).toHaveBeenCalled();
-    // Should not make API request when cache hit
-    expect(global.fetch).not.toHaveBeenCalled();
-    // Response should indicate cache hit
-    expect(NextResponse.json).toHaveBeenCalledWith({
-      cacheHit: true,
-      count: expect.any(Number),
-      results: expect.arrayContaining([
+    expect(retrieveOrCache).not.toHaveBeenCalled();
+    expect(mockSearchNearby).toHaveBeenCalled();
+  });
+
+  test('handles API errors gracefully', async () => {
+    mockSearchNearby.mockRejectedValueOnce(new Error('API Error'));
+
+    const request = new Request('http://localhost/api/places/search', {
+      method: 'POST',
+      body: JSON.stringify({ location: sampleLocation }),
+    });
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(log.error).toHaveBeenCalled();
+    expect(data).toEqual({
+      results: [],
+      count: 0,
+      cacheHit: false,
+    });
+  });
+
+  test('includes correct fields in API request', async () => {
+    const request = new Request('http://localhost/api/places/search', {
+      method: 'POST',
+      body: JSON.stringify({ location: sampleLocation }),
+    });
+
+    await POST(request);
+
+    expect(mockSearchNearby).toHaveBeenCalledWith(
+      expect.objectContaining({
+        locationRestriction: expect.objectContaining({
+          circle: expect.objectContaining({
+            center: sampleLocation,
+          }),
+        }),
+      }),
+      expect.objectContaining({
+        otherArgs: expect.objectContaining({
+          headers: expect.objectContaining({
+            'X-Goog-FieldMask': expect.stringContaining('places.id'),
+          }),
+        }),
+      })
+    );
+  });
+
+  test('transforms API response correctly', async () => {
+    const request = new Request('http://localhost/api/places/search', {
+      method: 'POST',
+      body: JSON.stringify({ location: sampleLocation }),
+    });
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(data.results).toEqual(
+      expect.arrayContaining([
         expect.objectContaining({
           id: expect.any(String),
+          location: expect.objectContaining({
+            latitude: expect.any(Number),
+            longitude: expect.any(Number),
+          }),
           emoji: expect.any(String),
-          location: expect.any(Object),
         }),
-      ]),
-    });
-  });
-
-  it('should filter results by price level', async () => {
-    // Mock API response
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      ok: true,
-      json: async () => samplePlaceResponse,
-    });
-
-    const request = new Request('http://localhost/api/places/search', {
-      method: 'POST',
-      body: JSON.stringify({
-        location: sampleLocation,
-        keys: [1],
-        priceLevels: [2], // Only PRICE_LEVEL_MODERATE (2)
-      }),
-    });
-
-    await POST(request);
-
-    // Should only include places with matching price level
-    expect(NextResponse.json).toHaveBeenCalledWith({
-      cacheHit: false,
-      count: 1,
-      results: [
-        expect.objectContaining({
-          id: 'place-id-1', // Only the moderate price level place
-          emoji: expect.any(String),
-          location: expect.any(Object),
-        }),
-      ],
-    });
-  });
-
-  it('should filter results by openNow', async () => {
-    // Mock API response
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      ok: true,
-      json: async () => samplePlaceResponse,
-    });
-
-    const request = new Request('http://localhost/api/places/search', {
-      method: 'POST',
-      body: JSON.stringify({
-        location: sampleLocation,
-        keys: [1],
-        openNow: true,
-      }),
-    });
-
-    await POST(request);
-
-    // Should only include places that are open now
-    expect(NextResponse.json).toHaveBeenCalledWith({
-      cacheHit: false,
-      count: 1,
-      results: [
-        expect.objectContaining({
-          id: 'place-id-1', // Only the open place
-          emoji: expect.any(String),
-          location: expect.any(Object),
-        }),
-      ],
-    });
-  });
-
-  it('should handle API errors gracefully', async () => {
-    // Mock API error
-    (global.fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
-      new Error('API Error')
+      ])
     );
-
-    // Mock empty response for this test
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: async () => ({ places: [] }),
-    });
-
-    const request = new Request('http://localhost/api/places/search', {
-      method: 'POST',
-      body: JSON.stringify({
-        location: sampleLocation,
-        keys: [1],
-      }),
-    });
-
-    await POST(request);
-
-    // Should return empty results on error
-    expect(NextResponse.json).toHaveBeenCalledWith({
-      cacheHit: false,
-      count: 0,
-      results: [],
-    });
   });
 
-  it('should handle streaming mode', async () => {
-    // Mock TransformStream
-    const mockWriter = {
-      write: vi.fn(),
-      close: vi.fn(),
-    };
-
-    // Mock TransformStream constructor
-    const mockTransformStream = {
-      readable: 'mock-readable-stream',
-      writable: { getWriter: () => mockWriter },
-    };
-
-    // @ts-expect-error - Mocking global TransformStream
-    global.TransformStream = vi.fn(() => mockTransformStream);
-
-    // Mock NextResponse constructor for streaming response
-    const mockNextResponseFn = vi.fn().mockReturnValue('streaming-response');
-
-    // Save original NextResponse
-    const originalNextResponse = NextResponse;
-
-    // Replace NextResponse temporarily
-    // @ts-expect-error - Temporarily replacing NextResponse
-    NextResponse = mockNextResponseFn;
-
+  test('uses category types from provided keys', async () => {
     const request = new Request('http://localhost/api/places/search', {
       method: 'POST',
       body: JSON.stringify({
         location: sampleLocation,
-        stream: true,
+        keys: [1, 2], // Food and Cafe categories
       }),
     });
 
     await POST(request);
 
-    // Should return a streaming response
-    expect(mockNextResponseFn).toHaveBeenCalledWith(
-      'mock-readable-stream',
+    const expectedTypes = [
+      ...CATEGORY_MAP_LOOKUP[1].primaryType,
+      ...CATEGORY_MAP_LOOKUP[2].primaryType,
+    ];
+
+    expect(mockSearchNearby).toHaveBeenCalledWith(
       expect.objectContaining({
-        headers: expect.objectContaining({
-          'Content-Type': 'application/json',
-          'Transfer-Encoding': 'chunked',
-        }),
-      })
+        includedTypes: expect.arrayContaining(expectedTypes),
+      }),
+      expect.any(Object)
     );
-
-    // Restore NextResponse
-    // @ts-expect-error - Restoring NextResponse
-    NextResponse = originalNextResponse;
   });
 
-  it('should use default keys when none are provided', async () => {
+  test('respects maxResultCount parameter', async () => {
+    const maxResultCount = 1;
     const request = new Request('http://localhost/api/places/search', {
       method: 'POST',
       body: JSON.stringify({
         location: sampleLocation,
+        maxResultCount,
       }),
     });
 
     await POST(request);
 
-    // Should use all category keys as default
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.any(String),
+    expect(mockSearchNearby).toHaveBeenCalledWith(
       expect.objectContaining({
-        body: expect.stringContaining('"includedPrimaryTypes"'),
-      })
-    );
-  });
-
-  it('should group similar categories when multiple keys are provided', async () => {
-    const request = new Request('http://localhost/api/places/search', {
-      method: 'POST',
-      body: JSON.stringify({
-        location: sampleLocation,
-        keys: [1, 2],
+        maxResultCount,
       }),
-    });
-
-    await POST(request);
-
-    // Should make API requests with grouped keys
-    expect(global.fetch).toHaveBeenCalled();
-  });
-
-  it('should limit results based on maxResultCount parameter', async () => {
-    // Mock API response with multiple places
-    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
-      {
-        ok: true,
-        json: async () => ({
-          places: [
-            {
-              name: 'Test Place 1',
-              id: 'place-id-1',
-              types: ['restaurant'],
-              location: { latitude: 37.775, longitude: -122.419 },
-              priceLevel: 'PRICE_LEVEL_MODERATE',
-              currentOpeningHours: { openNow: true },
-            },
-            {
-              name: 'Test Place 2',
-              id: 'place-id-2',
-              types: ['restaurant'],
-              location: { latitude: 37.776, longitude: -122.418 },
-              priceLevel: 'PRICE_LEVEL_MODERATE',
-              currentOpeningHours: { openNow: true },
-            },
-            {
-              name: 'Test Place 3',
-              id: 'place-id-3',
-              types: ['restaurant'],
-              location: { latitude: 37.777, longitude: -122.417 },
-              priceLevel: 'PRICE_LEVEL_MODERATE',
-              currentOpeningHours: { openNow: true },
-            },
-          ],
-        }),
-      }
-    );
-
-    const request = new Request('http://localhost/api/places/search', {
-      method: 'POST',
-      body: JSON.stringify({
-        location: sampleLocation,
-        keys: [1],
-        maxResultCount: 2, // Limit to 2 results
-      }),
-    });
-
-    await POST(request);
-
-    // Should limit results to maxResultCount (2)
-    expect(NextResponse.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        count: 2,
-        results: expect.arrayContaining([
-          expect.objectContaining({ id: 'place-id-1' }),
-          expect.objectContaining({ id: 'place-id-2' }),
-        ]),
-      })
-    );
-
-    // Should not include the third place
-    const jsonCall = (NextResponse.json as ReturnType<typeof vi.fn>).mock
-      .calls[0][0];
-    expect(jsonCall.results.length).toBe(2);
-    expect(
-      jsonCall.results.some(
-        (place: { id: string }) => place.id === 'place-id-3'
-      )
-    ).toBe(false);
-  });
-
-  it('should pass maxResultCount to Google Places API', async () => {
-    const request = new Request('http://localhost/api/places/search', {
-      method: 'POST',
-      body: JSON.stringify({
-        location: sampleLocation,
-        keys: [1],
-        maxResultCount: 10,
-      }),
-    });
-
-    await POST(request);
-
-    // Should include maxResultCount in the API request
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({
-        body: expect.stringContaining('"maxResultCount":10'),
-      })
+      expect.any(Object)
     );
   });
 
-  it('should limit cached results based on maxResultCount', async () => {
-    // Mock cache hit with multiple places
-    (redis.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
-      {
-        name: 'Cached Place 1',
-        id: 'cached-id-1',
-        types: ['restaurant'],
-        location: { latitude: 37.775, longitude: -122.419 },
-        priceLevel: 'PRICE_LEVEL_MODERATE',
-        currentOpeningHours: { openNow: true },
-      },
-      {
-        name: 'Cached Place 2',
-        id: 'cached-id-2',
-        types: ['restaurant'],
-        location: { latitude: 37.776, longitude: -122.418 },
-        priceLevel: 'PRICE_LEVEL_MODERATE',
-        currentOpeningHours: { openNow: true },
-      },
-      {
-        name: 'Cached Place 3',
-        id: 'cached-id-3',
-        types: ['restaurant'],
-        location: { latitude: 37.777, longitude: -122.417 },
-        priceLevel: 'PRICE_LEVEL_MODERATE',
-        currentOpeningHours: { openNow: true },
-      },
-    ]);
-
-    const request = new Request('http://localhost/api/places/search', {
-      method: 'POST',
-      body: JSON.stringify({
-        location: sampleLocation,
-        keys: [1],
-        maxResultCount: 2, // Limit to 2 results
-      }),
-    });
-
-    await POST(request);
-
-    // Should check cache
-    expect(redis.get).toHaveBeenCalled();
-    // Should not make API request when cache hit
-    expect(global.fetch).not.toHaveBeenCalled();
-
-    // Should limit cached results to maxResultCount (2)
-    expect(NextResponse.json).toHaveBeenCalledWith({
-      cacheHit: true,
-      count: 2,
-      results: expect.arrayContaining([
-        expect.objectContaining({ id: 'cached-id-1' }),
-        expect.objectContaining({ id: 'cached-id-2' }),
-      ]),
-    });
-
-    // Should not include the third cached place
-    const jsonCall = (NextResponse.json as ReturnType<typeof vi.fn>).mock
-      .calls[0][0];
-    expect(jsonCall.results.length).toBe(2);
-    expect(
-      jsonCall.results.some(
-        (place: { id: string }) => place.id === 'cached-id-3'
-      )
-    ).toBe(false);
-  });
-
-  it('should accept minimumRating parameter', async () => {
-    // Mock the log.debug function
-    const debugSpy = vi.spyOn(log, 'debug');
-
-    const request = new Request('http://localhost/api/places/search', {
-      method: 'POST',
-      body: JSON.stringify({
-        location: sampleLocation,
-        keys: [1],
-        minimumRating: 4.5,
-      }),
-    });
-
-    await POST(request);
-
-    // Should log the minimumRating parameter
-    expect(debugSpy).toHaveBeenCalledWith('Minimum rating parameter received', {
-      minimumRating: 4.5,
-    });
-  });
-
-  // New tests to prevent regression of the maxResultCount bug
-  it('should request more results from Google when filtering by price level', async () => {
-    // Mock API response with multiple places
-    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
-      {
-        ok: true,
-        json: async () => ({
-          places: [
-            {
-              name: 'Test Place 1',
-              id: 'place-id-1',
-              types: ['restaurant'],
-              location: { latitude: 37.775, longitude: -122.419 },
-              priceLevel: 'PRICE_LEVEL_EXPENSIVE',
-              currentOpeningHours: { openNow: true },
-            },
-            {
-              name: 'Test Place 2',
-              id: 'place-id-2',
-              types: ['restaurant'],
-              location: { latitude: 37.776, longitude: -122.418 },
-              priceLevel: 'PRICE_LEVEL_MODERATE',
-              currentOpeningHours: { openNow: true },
-            },
-            {
-              name: 'Test Place 3',
-              id: 'place-id-3',
-              types: ['restaurant'],
-              location: { latitude: 37.777, longitude: -122.417 },
-              priceLevel: 'PRICE_LEVEL_INEXPENSIVE',
-              currentOpeningHours: { openNow: true },
-            },
-          ],
-        }),
-      }
-    );
-
-    const request = new Request('http://localhost/api/places/search', {
-      method: 'POST',
-      body: JSON.stringify({
-        location: sampleLocation,
-        keys: [1],
-        priceLevels: [3], // Only PRICE_LEVEL_EXPENSIVE (3)
-        maxResultCount: 1, // Limit to 1 result
-      }),
-    });
-
-    await POST(request);
-
-    // Should request maximum results from Google (20) when filtering
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({
-        body: expect.stringContaining('"maxResultCount":20'),
-      })
-    );
-
-    // Should only include places with matching price level and respect maxResultCount
-    expect(NextResponse.json).toHaveBeenCalledWith({
-      cacheHit: false,
-      count: 1,
-      results: [
-        expect.objectContaining({
-          id: 'place-id-1', // Only the expensive place
-          emoji: expect.any(String),
-          location: expect.any(Object),
-        }),
-      ],
-    });
-  });
-
-  it('should request more results from Google when filtering by openNow', async () => {
-    // Mock API response with multiple places
-    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
-      {
-        ok: true,
-        json: async () => ({
-          places: [
-            {
-              name: 'Test Place 1',
-              id: 'place-id-1',
-              types: ['restaurant'],
-              location: { latitude: 37.775, longitude: -122.419 },
-              priceLevel: 'PRICE_LEVEL_MODERATE',
-              currentOpeningHours: { openNow: true },
-            },
-            {
-              name: 'Test Place 2',
-              id: 'place-id-2',
-              types: ['restaurant'],
-              location: { latitude: 37.776, longitude: -122.418 },
-              priceLevel: 'PRICE_LEVEL_MODERATE',
-              currentOpeningHours: { openNow: false },
-            },
-            {
-              name: 'Test Place 3',
-              id: 'place-id-3',
-              types: ['restaurant'],
-              location: { latitude: 37.777, longitude: -122.417 },
-              priceLevel: 'PRICE_LEVEL_MODERATE',
-              currentOpeningHours: { openNow: true },
-            },
-          ],
-        }),
-      }
-    );
-
-    const request = new Request('http://localhost/api/places/search', {
-      method: 'POST',
-      body: JSON.stringify({
-        location: sampleLocation,
-        keys: [1],
-        openNow: true,
-        maxResultCount: 1, // Limit to 1 result
-      }),
-    });
-
-    await POST(request);
-
-    // Should request maximum results from Google (20) when filtering
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({
-        body: expect.stringContaining('"maxResultCount":20'),
-      })
-    );
-
-    // Should only include places that are open and respect maxResultCount
-    expect(NextResponse.json).toHaveBeenCalledWith({
-      cacheHit: false,
-      count: 1,
-      results: [
-        expect.objectContaining({
-          id: 'place-id-1', // Only the first open place
-          emoji: expect.any(String),
-          location: expect.any(Object),
-        }),
-      ],
-    });
-  });
-
-  it('should request more results from Google when filtering by minimumRating', async () => {
-    // Mock API response with multiple places with ratings
-    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
-      {
-        ok: true,
-        json: async () => ({
-          places: [
-            {
-              name: 'Test Place 1',
-              id: 'place-id-1',
-              types: ['restaurant'],
-              location: { latitude: 37.775, longitude: -122.419 },
-              priceLevel: 'PRICE_LEVEL_MODERATE',
-              currentOpeningHours: { openNow: true },
-              rating: 4.8,
-            },
-            {
-              name: 'Test Place 2',
-              id: 'place-id-2',
-              types: ['restaurant'],
-              location: { latitude: 37.776, longitude: -122.418 },
-              priceLevel: 'PRICE_LEVEL_MODERATE',
-              currentOpeningHours: { openNow: true },
-              rating: 3.5,
-            },
-            {
-              name: 'Test Place 3',
-              id: 'place-id-3',
-              types: ['restaurant'],
-              location: { latitude: 37.777, longitude: -122.417 },
-              priceLevel: 'PRICE_LEVEL_MODERATE',
-              currentOpeningHours: { openNow: true },
-              rating: 4.6,
-            },
-          ],
-        }),
-      }
-    );
-
-    const request = new Request('http://localhost/api/places/search', {
-      method: 'POST',
-      body: JSON.stringify({
-        location: sampleLocation,
-        keys: [1],
-        minimumRating: 4.5,
-        maxResultCount: 1, // Limit to 1 result
-      }),
-    });
-
-    await POST(request);
-
-    // Should request maximum results from Google (20) when filtering
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({
-        body: expect.stringContaining('"maxResultCount":20'),
-      })
-    );
-
-    // Should only include places with rating >= 4.5 and respect maxResultCount
-    expect(NextResponse.json).toHaveBeenCalledWith({
-      cacheHit: false,
-      count: 1,
-      results: [
-        expect.objectContaining({
-          id: 'place-id-1', // Only the first place with high rating
-          emoji: expect.any(String),
-          location: expect.any(Object),
-        }),
-      ],
-    });
-  });
-
-  it('should apply multiple filters correctly with maxResultCount', async () => {
-    // Mock API response with multiple places with various attributes
-    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
-      {
-        ok: true,
-        json: async () => ({
-          places: [
-            {
-              name: 'Test Place 1',
-              id: 'place-id-1',
-              types: ['restaurant'],
-              location: { latitude: 37.775, longitude: -122.419 },
-              priceLevel: 'PRICE_LEVEL_EXPENSIVE',
-              currentOpeningHours: { openNow: true },
-              rating: 4.8,
-            },
-            {
-              name: 'Test Place 2',
-              id: 'place-id-2',
-              types: ['restaurant'],
-              location: { latitude: 37.776, longitude: -122.418 },
-              priceLevel: 'PRICE_LEVEL_EXPENSIVE',
-              currentOpeningHours: { openNow: false },
-              rating: 4.9,
-            },
-            {
-              name: 'Test Place 3',
-              id: 'place-id-3',
-              types: ['restaurant'],
-              location: { latitude: 37.777, longitude: -122.417 },
-              priceLevel: 'PRICE_LEVEL_MODERATE',
-              currentOpeningHours: { openNow: true },
-              rating: 4.7,
-            },
-            {
-              name: 'Test Place 4',
-              id: 'place-id-4',
-              types: ['restaurant'],
-              location: { latitude: 37.778, longitude: -122.416 },
-              priceLevel: 'PRICE_LEVEL_EXPENSIVE',
-              currentOpeningHours: { openNow: true },
-              rating: 4.6,
-            },
-          ],
-        }),
-      }
-    );
-
-    const request = new Request('http://localhost/api/places/search', {
-      method: 'POST',
-      body: JSON.stringify({
-        location: sampleLocation,
-        keys: [1],
-        priceLevels: [3], // Only PRICE_LEVEL_EXPENSIVE (3)
-        openNow: true,
-        minimumRating: 4.5,
-        maxResultCount: 1, // Limit to 1 result
-      }),
-    });
-
-    await POST(request);
-
-    // Should request maximum results from Google (20) when filtering
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({
-        body: expect.stringContaining('"maxResultCount":20'),
-      })
-    );
-
-    // Should only include places that match all filters and respect maxResultCount
-    expect(NextResponse.json).toHaveBeenCalledWith({
-      cacheHit: false,
-      count: 1,
-      results: [
-        expect.objectContaining({
-          id: 'place-id-1', // Only the first place matching all criteria
-          emoji: expect.any(String),
-          location: expect.any(Object),
-        }),
-      ],
-    });
-
-    // Verify that only one result is returned even though two places match all filters
-    const jsonCall = (NextResponse.json as ReturnType<typeof vi.fn>).mock
-      .calls[0][0];
-    expect(jsonCall.results.length).toBe(1);
-    expect(
-      jsonCall.results.some(
-        (place: { id: string }) => place.id === 'place-id-4'
-      )
-    ).toBe(false);
-  });
-
-  // Add new test cases for emoji matching logic
-  describe('Emoji Matching Logic', () => {
-    it('should match exact example names with correct emoji', async () => {
-      // Mock fetch to return McDonald's data
-      (
-        global.fetch as unknown as ReturnType<typeof vi.fn>
-      ).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          places: [
-            {
-              name: "McDonald's",
-              id: 'place-id-1',
-              types: ['restaurant', 'burger_restaurant', 'food'],
-              location: {
-                latitude: 37.775,
-                longitude: -122.419,
-              },
-              displayName: {
-                text: "McDonald's",
-              },
-            },
-          ],
+  describe('emoji assignment', () => {
+    test('uses category emoji directly when single key is provided', async () => {
+      const request = new Request('http://localhost/api/places/search', {
+        method: 'POST',
+        body: JSON.stringify({
+          location: sampleLocation,
+          keys: [1], // Restaurant category
         }),
       });
 
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(data.results).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            emoji: '🍽️', // Should use the emoji directly from CATEGORY_MAP_LOOKUP
+          }),
+        ])
+      );
+    });
+
+    test('uses getEmojiForTypes when multiple keys are provided', async () => {
+      const request = new Request('http://localhost/api/places/search', {
+        method: 'POST',
+        body: JSON.stringify({
+          location: sampleLocation,
+          keys: [1, 2], // Restaurant and Cafe categories
+        }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      // Should use getEmojiForTypes which will look at the place types
+      expect(data.results[0].emoji).toBe('🍽️');
+      expect(data.results[1].emoji).toBe('☕');
+    });
+
+    test('uses getEmojiForTypes when no keys are provided', async () => {
       const request = new Request('http://localhost/api/places/search', {
         method: 'POST',
         body: JSON.stringify({
@@ -1017,220 +499,12 @@ describe('Places Search API', () => {
         }),
       });
 
-      await POST(request);
+      const response = await POST(request);
+      const data = await response.json();
 
-      // Should match McDonald's with burger emoji
-      expect(NextResponse.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          results: [
-            expect.objectContaining({
-              emoji: '🍔',
-              id: 'place-id-1',
-            }),
-          ],
-        })
-      );
-    });
-
-    it('should match based on exact word matches from keywords', async () => {
-      // Mock fetch to return Burrito Factory data
-      (
-        global.fetch as unknown as ReturnType<typeof vi.fn>
-      ).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          places: [
-            {
-              name: 'Burrito Factory',
-              id: 'place-id-1',
-              types: ['restaurant', 'mexican_restaurant', 'food'],
-              location: {
-                latitude: 37.775,
-                longitude: -122.419,
-              },
-              displayName: {
-                text: 'Burrito Factory',
-              },
-            },
-          ],
-        }),
-      });
-
-      const request = new Request('http://localhost/api/places/search', {
-        method: 'POST',
-        body: JSON.stringify({
-          location: sampleLocation,
-        }),
-      });
-
-      await POST(request);
-
-      // Should match Burrito Factory with taco emoji due to "burrito" keyword
-      expect(NextResponse.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          results: [
-            expect.objectContaining({
-              emoji: '🌮',
-              id: 'place-id-1',
-            }),
-          ],
-        })
-      );
-    });
-
-    it('should handle case-insensitive matching', async () => {
-      // Mock fetch to return sushi places data
-      (
-        global.fetch as unknown as ReturnType<typeof vi.fn>
-      ).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          places: [
-            {
-              name: 'SUSHI EXPRESS',
-              id: 'place-id-1',
-              types: ['restaurant', 'japanese_restaurant', 'food'],
-              location: {
-                latitude: 37.775,
-                longitude: -122.419,
-              },
-              displayName: {
-                text: 'SUSHI EXPRESS',
-              },
-            },
-            {
-              name: 'sushi house',
-              id: 'place-id-2',
-              types: ['restaurant', 'japanese_restaurant', 'food'],
-              location: {
-                latitude: 37.776,
-                longitude: -122.418,
-              },
-              displayName: {
-                text: 'sushi house',
-              },
-            },
-          ],
-        }),
-      });
-
-      const request = new Request('http://localhost/api/places/search', {
-        method: 'POST',
-        body: JSON.stringify({
-          location: sampleLocation,
-        }),
-      });
-
-      await POST(request);
-
-      // Both should match with sushi emoji regardless of case
-      expect(NextResponse.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          results: expect.arrayContaining([
-            expect.objectContaining({
-              emoji: '🍱',
-              id: 'place-id-1',
-            }),
-            expect.objectContaining({
-              emoji: '🍱',
-              id: 'place-id-2',
-            }),
-          ]),
-        })
-      );
-    });
-
-    it('should match based on primary types when no name match', async () => {
-      // Mock fetch to return cafe data
-      (
-        global.fetch as unknown as ReturnType<typeof vi.fn>
-      ).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          places: [
-            {
-              name: 'Local Eatery',
-              id: 'place-id-1',
-              types: ['cafe', 'food'],
-              location: {
-                latitude: 37.775,
-                longitude: -122.419,
-              },
-              displayName: {
-                text: 'Local Eatery',
-              },
-            },
-          ],
-        }),
-      });
-
-      const request = new Request('http://localhost/api/places/search', {
-        method: 'POST',
-        body: JSON.stringify({
-          location: sampleLocation,
-          keys: [2], // Cafe category
-        }),
-      });
-
-      await POST(request);
-
-      // Should match with cafe emoji based on primary type
-      expect(NextResponse.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          results: [
-            expect.objectContaining({
-              emoji: '☕',
-              id: 'place-id-1',
-            }),
-          ],
-        })
-      );
-    });
-
-    it('should use default emoji when no matches found', async () => {
-      // Mock fetch to return generic place data
-      (
-        global.fetch as unknown as ReturnType<typeof vi.fn>
-      ).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          places: [
-            {
-              name: 'Generic Place',
-              id: 'place-id-1',
-              types: ['point_of_interest'],
-              location: {
-                latitude: 37.775,
-                longitude: -122.419,
-              },
-              displayName: {
-                text: 'Generic Place',
-              },
-            },
-          ],
-        }),
-      });
-
-      const request = new Request('http://localhost/api/places/search', {
-        method: 'POST',
-        body: JSON.stringify({
-          location: sampleLocation,
-        }),
-      });
-
-      await POST(request);
-
-      // Should use default emoji when no matches
-      expect(NextResponse.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          results: [
-            expect.objectContaining({
-              emoji: '🍽️',
-              id: 'place-id-1',
-            }),
-          ],
-        })
-      );
+      // Should use getEmojiForTypes which will look at the place types
+      expect(data.results[0].emoji).toBe('🍽️');
+      expect(data.results[1].emoji).toBe('☕');
     });
   });
 });

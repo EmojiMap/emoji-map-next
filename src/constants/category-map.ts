@@ -19,13 +19,6 @@ export const CATEGORY_MAP = [
     name: 'pizza',
     keywords: ['italian', 'pepperoni', 'cheese', 'pasta', 'calzone'],
     primaryType: ['pizza_restaurant', 'italian_restaurant'],
-    examples: [
-      'Pizza Hut',
-      "Domino's",
-      "Papa John's",
-      'Little Caesars',
-      'Pizza Express',
-    ],
   },
   {
     key: 2,
@@ -59,16 +52,6 @@ export const CATEGORY_MAP = [
       'american_restaurant',
       'diner',
     ],
-    examples: [
-      "McDonald's",
-      'Burger King',
-      'Five Guys',
-      'In-N-Out',
-      'Shake Shack',
-      "Wendy's",
-      "Carl's Jr",
-      'Jack in the Box',
-    ],
   },
   {
     key: 6,
@@ -76,18 +59,6 @@ export const CATEGORY_MAP = [
     name: 'mexican',
     keywords: ['taco', 'burrito', 'salsa', 'guacamole', 'enchilada'],
     primaryType: ['mexican_restaurant'],
-    examples: [
-      'Taco Bell',
-      'Taco Loco',
-      'Taco Taco',
-      'Taco Time',
-      'Taco Loco',
-      'Priomos',
-      'Burrito Factory',
-      'The Taco Stand',
-      'Qdoba',
-      'Chipotle Mexican Grill',
-    ],
   },
   {
     key: 7,
@@ -170,16 +141,6 @@ export const CATEGORY_MAP = [
     name: 'chicken',
     keywords: ['fried', 'grilled', 'wings', 'nuggets', 'roast', 'chick'],
     primaryType: ['brazilian_restaurant', 'fast_food_restaurant'],
-    examples: [
-      'KFC',
-      'Popeyes',
-      'Chick-fil-A',
-      "Dave's Hot Chicken",
-      "Raising Cane's",
-      "Church's Chicken",
-      'Wingstop',
-      'Buffalo Wild Wings',
-    ],
   },
   {
     key: 16,
@@ -233,7 +194,6 @@ export const CATEGORY_MAP = [
     name: 'bakery',
     keywords: ['bread', 'pastry', 'croissant', 'cake', 'muffin'],
     primaryType: ['bakery', 'french_restaurant'],
-    examples: ['Bakery', 'Pastry Shop', 'Croissant', 'Cake', 'Muffin'],
   },
   {
     key: 23,
@@ -269,16 +229,6 @@ export const CATEGORY_MAP = [
     name: 'barbecue',
     keywords: ['meat', 'grill', 'ribs', 'smoke', 'sauce'],
     primaryType: ['barbecue_restaurant', 'afghani_restaurant'],
-    examples: [
-      "Dick's Barbecue",
-      'Smokin Joes',
-      'BBQ King',
-      'BBQ Joint',
-      'BBQ Pit',
-      'BBQ Shack',
-      'BBQ Grill',
-      'BBQ Smokehouse',
-    ],
   },
   {
     key: 28,
@@ -286,13 +236,6 @@ export const CATEGORY_MAP = [
     name: 'bagel',
     keywords: ['bread', 'cream cheese', 'breakfast', 'deli', 'toasted'],
     primaryType: ['bagel_shop'],
-    examples: [
-      'Bagel Factory',
-      'Bagel Bites',
-      'Bagel Boss',
-      'Bagel Delight',
-      'Einstein Bros',
-    ],
   },
   {
     key: 29,
@@ -300,7 +243,6 @@ export const CATEGORY_MAP = [
     name: 'breakfast',
     keywords: ['pancakes', 'eggs', 'bacon', 'waffles', 'coffee'],
     primaryType: ['breakfast_restaurant'],
-    examples: ['iHop', 'Snooze', "Denny's", 'Waffle House'],
   },
   {
     key: 30,
@@ -308,7 +250,6 @@ export const CATEGORY_MAP = [
     name: 'brunch',
     keywords: ['eggs', 'toast', 'mimosa', 'pancakes', 'coffee'],
     primaryType: ['brunch_restaurant'],
-    examples: ['Snooze'],
   },
   {
     key: 31,
@@ -337,13 +278,6 @@ export const CATEGORY_MAP = [
     name: 'confectionery',
     keywords: ['candy', 'sweets', 'lollipop', 'fudge', 'toffee', 'yogurt'],
     primaryType: ['confectionery'],
-    examples: [
-      'Candyland',
-      'Sweet Treats',
-      'Sugar Rush',
-      'Chocolate Heaven',
-      'Crumbl',
-    ],
   },
   {
     key: 35,
@@ -358,7 +292,6 @@ export const CATEGORY_MAP = [
     name: 'donut',
     keywords: ['doughnut', 'glaze', 'sprinkles', 'pastry', 'coffee'],
     primaryType: ['donut_shop', 'dessert_shop'],
-    examples: ['Dunkin', 'Krispy Kreme', 'Tim Hortons', 'Dairy Queen'],
   },
   {
     key: 37,
@@ -366,7 +299,6 @@ export const CATEGORY_MAP = [
     name: 'fast_food',
     keywords: ['fries', 'burger', 'chicken', 'drive-thru', 'quick'],
     primaryType: ['fast_food_restaurant'],
-    examples: ['Taco Bell', "Arby's", 'Subway', 'White Castle', 'Del Taco'],
   },
   {
     key: 38,
@@ -381,13 +313,6 @@ export const CATEGORY_MAP = [
       'fine dining',
     ],
     primaryType: ['fine_dining_restaurant'],
-    examples: [
-      'The French Laundry',
-      'Alinea',
-      'Le Bernardin',
-      'Narisawa',
-      'Osteria Francescana',
-    ],
   },
   {
     key: 39,
@@ -409,21 +334,6 @@ export const CATEGORY_MAP = [
       'lebanese_restaurant',
       'turkish_restaurant',
     ],
-    examples: [
-      'Gyro King',
-      'Hummus House',
-      'Pita Palace',
-      'Olive Garden',
-      'Feta Factory',
-      'Falafel King',
-      'CAVA',
-      'Halal Bros',
-      'Kabab & Grill',
-      "Zaxby's",
-      'Pita Pit',
-      'Pita Jungle',
-      'Pita Mediterranean',
-    ],
   },
   {
     key: 40,
@@ -431,7 +341,6 @@ export const CATEGORY_MAP = [
     name: 'asian_rice',
     keywords: ['rice', 'stir-fry', 'curry', 'sushi', 'bowl'],
     primaryType: ['indonesian_restaurant', 'chinese_restaurant'],
-    examples: ['Panda Express'],
   },
   {
     key: 41,
@@ -447,7 +356,6 @@ export const CATEGORY_MAP = [
       'tea house',
     ],
     primaryType: ['juice_shop', 'tea_house'],
-    examples: ['Jamba Juice', 'Smoothie King', 'Tapioca Express'],
   },
   {
     key: 42,
@@ -478,3 +386,132 @@ export const CATEGORY_MAP = [
     primaryType: ['vegetarian_restaurant'],
   },
 ];
+
+export const CATEGORY_MAP_LOOKUP: Record<
+  number,
+  (typeof CATEGORY_MAP)[number]
+> = CATEGORY_MAP.reduce(
+  (acc, c) => ({
+    ...acc,
+    [c.key]: c,
+  }),
+  {}
+);
+
+export const EMOJI_OVERRIDES: Record<string, string> = {
+  // Pizza places (key: 1, emoji: 🍕)
+  'pizza hut': '🍕',
+  "domino's": '🍕',
+  "papa john's": '🍕',
+  'little caesars': '🍕',
+  'pizza express': '🍕',
+
+  // Burger places (key: 5, emoji: 🍔)
+  "mcdonald's": '🍔',
+  'burger king': '🍔',
+  'five guys': '🍔',
+  'in-n-out': '🍔',
+  'shake shack': '🍔',
+  "wendy's": '🍔',
+  "carl's jr": '🍔',
+  'jack in the box': '🍔',
+
+  // Mexican places (key: 6, emoji: 🌮)
+  'taco bell': '🌯',
+  'taco loco': '🌮',
+  'taco taco': '🌮',
+  'taco time': '🌮',
+  priomos: '🌮',
+  'burrito factory': '🌯',
+  'the taco stand': '🌮',
+  qdoba: '🌯',
+  'chipotle mexican grill': '🌯',
+
+  // Chicken places (key: 15, emoji: 🍗)
+  kfc: '🍗',
+  popeyes: '🍗',
+  'chick-fil-a': '🍗',
+  "dave's hot chicken": '🍗',
+  "raising cane's": '🍗',
+  "church's chicken": '🍗',
+  wingstop: '🍗',
+  'buffalo wild wings': '🍗',
+
+  // Bakery places (key: 22, emoji: 🥐)
+  bakery: '🥐',
+  'pastry shop': '🥐',
+  croissant: '🥐',
+  cake: '🥐',
+  muffin: '🥐',
+
+  // BBQ places (key: 27, emoji: 🍖)
+  "dick's barbecue": '🍖',
+  'smokin joes': '🍖',
+  'bbq king': '🍖',
+  'bbq joint': '🍖',
+  'bbq pit': '🍖',
+  'bbq shack': '🍖',
+  'bbq grill': '🍖',
+  'bbq smokehouse': '🍖',
+
+  // Bagel places (key: 28, emoji: 🥯)
+  'bagel factory': '🥯',
+  'bagel bites': '🥯',
+  'bagel boss': '🥯',
+  'bagel delight': '🥯',
+  'einstein bros': '🥯',
+
+  // Breakfast places (key: 29, emoji: 🥞)
+  ihop: '🥞',
+  snooze: '🥞',
+  "denny's": '🥞',
+  'waffle house': '🥞',
+
+  // Confectionery places (key: 34, emoji: 🍭)
+  candyland: '🍭',
+  'sweet treats': '🍭',
+  'sugar rush': '🍭',
+  'chocolate heaven': '🍭',
+  crumbl: '🍭',
+
+  // Donut places (key: 36, emoji: 🍩)
+  dunkin: '🍩',
+  'krispy kreme': '🍩',
+  'tim hortons': '🍩',
+  'dairy queen': '🍩',
+
+  // Fast food places (key: 37, emoji: 🍟)
+  "arby's": '🍟',
+  subway: '🍟',
+  'white castle': '🍟',
+  'del taco': '🍟',
+
+  // Fine dining places (key: 38, emoji: 🍴)
+  'the french laundry': '🍴',
+  alinea: '🍴',
+  'le bernardin': '🍴',
+  narisawa: '🍴',
+  'osteria francescana': '🍴',
+
+  // Mediterranean places (key: 39, emoji: 🥙)
+  'gyro king': '🥙',
+  'hummus house': '🥙',
+  'pita palace': '🥙',
+  'feta factory': '🥙',
+  'falafel king': '🥙',
+  cava: '🥙',
+  'halal bros': '🥙',
+  'kabab & grill': '🥙',
+  "zaxby's": '🥙',
+  'pita pit': '🥙',
+  'pita jungle': '🥙',
+  'pita mediterranean': '🥙',
+
+  // Asian rice places (key: 40, emoji: 🍚)
+  'panda express': '🍚',
+
+  // Juice places (key: 41, emoji: 🥤)
+  'jamba juice': '🥤',
+  'smoothie king': '🥤',
+  'tapioca express': '🥤',
+};

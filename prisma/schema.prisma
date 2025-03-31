@@ -13,65 +13,70 @@ model User {
   id        String     @id @unique
   email     String     @unique
   username  String?
-  firstName String?
-  lastName  String?
-  imageUrl  String?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @default(now()) @updatedAt
+  firstName String?    @map("first_name")
+  lastName  String?    @map("last_name")
+  imageUrl  String?    @map("image_url")
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @default(now()) @updatedAt @map("updated_at")
   favorites Favorite[]
   ratings   Rating[]
   merchant  Merchant?
 
   @@index([id])
+  @@map("users")
 }
 
 model Place {
-  id          String     @id @default(cuid())
-  name        String?
-  description String?
-  latitude    Float?
-  longitude   Float?
-  address     String?
-  merchantId  String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @default(now()) @updatedAt
-  favorites   Favorite[]
-  photos      Photo[]
-  ratings     Rating[]
-  reviews     Review[]
-  merchant    Merchant?  @relation(fields: [merchantId], references: [id])
+  id           String     @id @default(cuid())
+  name         String?
+  description  String?
+  latitude     Float?
+  longitude    Float?
+  address      String?
+  merchantId   String?    @map("merchant_id")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @default(now()) @updatedAt @map("updated_at")
+  lastSyncedAt DateTime?  @map("last_synced_at")
+  favorites    Favorite[]
+  photos       Photo[]
+  ratings      Rating[]
+  reviews      Review[]
+  merchant     Merchant?  @relation(fields: [merchantId], references: [id])
 
   @@index([name])
   @@index([merchantId])
+  @@map("places")
 }
 
 model Favorite {
   id        String   @id @default(cuid())
-  userId    String
-  placeId   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  userId    String   @map("user_id")
+  placeId   String   @map("place_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
   place     Place    @relation(fields: [placeId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, placeId])
   @@index([userId])
   @@index([placeId])
+  @@map("favorites")
 }
 
 model Rating {
   id        String   @id @default(cuid())
-  userId    String
-  placeId   String
+  userId    String   @map("user_id")
+  placeId   String   @map("place_id")
   rating    Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
   place     Place    @relation(fields: [placeId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, placeId])
   @@index([userId])
   @@index([placeId])
+  @@map("ratings")
 }
 
 model Category {
@@ -79,34 +84,42 @@ model Category {
   emoji    String   @unique
   name     String   @unique
   keywords String[]
+
+  @@map("categories")
 }
 
 model Review {
   id                             String   @id @default(cuid())
-  placeId                        String
+  placeId                        String   @map("place_id")
   name                           String
-  relativePublishTimeDescription String
+  relativePublishTimeDescription String   @map("relative_publish_time_description")
   rating                         Int
   text                           String
-  createdAt                      DateTime @default(now())
-  updatedAt                      DateTime @default(now()) @updatedAt
+  createdAt                      DateTime @default(now()) @map("created_at")
+  updatedAt                      DateTime @default(now()) @updatedAt @map("updated_at")
   place                          Place    @relation(fields: [placeId], references: [id], onDelete: Cascade)
+
+  @@map("reviews")
 }
 
 model Photo {
   id        String   @id @default(cuid())
-  placeId   String
+  placeId   String   @map("place_id")
   url       String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
   place     Place    @relation(fields: [placeId], references: [id], onDelete: Cascade)
+
+  @@map("photos")
 }
 
 model Merchant {
   id        String   @id @default(cuid())
-  userId    String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  userId    String   @unique @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
   places    Place[]
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("merchants")
 }
