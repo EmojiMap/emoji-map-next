@@ -1,6 +1,9 @@
-// import { NextResponse } from 'next/server';
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
-// import { env } from './env';
+import { NextResponse } from 'next/server';
+import {
+  clerkClient,
+  clerkMiddleware,
+  createRouteMatcher,
+} from '@clerk/nextjs/server';
 
 // Create a route matcher for public routes
 const isPublic = createRouteMatcher([
@@ -12,28 +15,33 @@ const isPublic = createRouteMatcher([
 ]);
 
 const isAdmin = createRouteMatcher(['/admin(.*)']);
-
 const isMerchantDashboard = createRouteMatcher(['/merchant/dashboard(.*)']);
 
 // Simple middleware configuration that allows public access to specified routes
 export default clerkMiddleware(async (auth, req) => {
-  if (isPublic(req) || isAdmin(req) || isMerchantDashboard(req)) {
+  if (isPublic(req)) {
     return;
   }
 
-  // const { orgId, orgRole } = await auth();
+  if (isAdmin(req) || isMerchantDashboard(req)) {
+    const client = await clerkClient();
+    const { userId } = await auth();
 
-  // if (isAdmin(req)) {
-  //   if (orgId !== env.CLERK_ORG_ID || orgRole !== 'org:admin') {
-  //     return NextResponse.redirect(new URL('/', req.url));
-  //   }
-  // }
+    if (!userId) {
+      return NextResponse.redirect(new URL('/', req.url));
+    }
 
-  // if (isMerchantDashboard(req)) {
-  //   if (orgId !== env.CLERK_ORG_ID || orgRole !== 'org:admin') {
-  //     return NextResponse.redirect(new URL('/', req.url));
-  //   }
-  // }
+    const user = await client.users.getUser(userId);
+    if (!user) {
+      return NextResponse.redirect(new URL('/', req.url));
+    }
+
+    if (!user?.publicMetadata?.admin) {
+      return NextResponse.redirect(new URL('/', req.url));
+    }
+
+    return;
+  }
 });
 
 export const config = {
