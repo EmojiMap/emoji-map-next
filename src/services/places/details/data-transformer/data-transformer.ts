@@ -1,3 +1,4 @@
+import { v4 } from 'uuid';
 import type { Detail } from '@/types/details';
 import {
   mapPriceLevel,
@@ -16,7 +17,11 @@ export function transformDetailsData(
   // Transform to Detail type with default values for required fields
   const normalizedData: Detail = {
     name: data.name || '',
-    reviews: data.reviews,
+    reviews: data.reviews.map((review) => ({
+      ...review,
+      status: 'DEFAULT',
+      id: v4(),
+    })),
     rating: data.rating || 0,
     priceLevel: mappedPriceLevel,
     userRatingCount: data.userRatingCount || 0,

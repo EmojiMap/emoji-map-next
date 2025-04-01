@@ -2,6 +2,8 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
+import { fetchDetails } from '@/services/places/details/fetch-details/fetch-details';
+import { transformGoogleDetailsToDbPlace } from '@/services/places/details/transformers/google-details-to-db-place';
 import { getUserId } from '@/services/user/get-user-id';
 import type { ErrorResponse } from '@/types/error-response';
 import type { UserResponse } from '@/types/user';
@@ -96,16 +98,36 @@ export async function POST(
 
         const existingPlaceIds = new Set(existingPlaces.map((p) => p.id));
 
-        // Create missing places in bulk
-        const placesToCreate = placeIds
-          .filter((id) => !existingPlaceIds.has(id))
-          .map((id) => ({ id }));
+        // Create missing places by fetching details from Google Places API
+        const placesToCreate = placeIds.filter(
+          (id) => !existingPlaceIds.has(id)
+        );
 
-        if (placesToCreate.length > 0) {
-          await tx.place.createMany({
-            data: placesToCreate,
-            skipDuplicates: true,
-          });
+        // Fetch and create places one by one since we need to call external API
+        for (const placeId of placesToCreate) {
+          try {
+            const details = await fetchDetails(placeId);
+            const { place: dbPlace, reviews: dbReviews } =
+              transformGoogleDetailsToDbPlace(details);
+
+            // Create the place
+            await tx.place.create({
+              data: dbPlace,
+            });
+
+            // Create reviews if any
+            if (dbReviews.length > 0) {
+              await tx.review.createMany({
+                data: dbReviews.map((review) => ({
+                  ...review,
+                  placeId: dbPlace.id,
+                })),
+              });
+            }
+          } catch (error) {
+            log.error('Error creating place', { error, placeId });
+            result.favorites.errors++;
+          }
         }
 
         // Find existing user favorites in one query
@@ -172,16 +194,36 @@ export async function POST(
 
         const existingPlaceIds = new Set(existingPlaces.map((p) => p.id));
 
-        // Create missing places in bulk
-        const placesToCreate = placeIds
-          .filter((id) => !existingPlaceIds.has(id))
-          .map((id) => ({ id }));
+        // Create missing places by fetching details from Google Places API
+        const placesToCreate = placeIds.filter(
+          (id) => !existingPlaceIds.has(id)
+        );
 
-        if (placesToCreate.length > 0) {
-          await tx.place.createMany({
-            data: placesToCreate,
-            skipDuplicates: true,
-          });
+        // Fetch and create places one by one since we need to call external API
+        for (const placeId of placesToCreate) {
+          try {
+            const details = await fetchDetails(placeId);
+            const { place: dbPlace, reviews: dbReviews } =
+              transformGoogleDetailsToDbPlace(details);
+
+            // Create the place
+            await tx.place.create({
+              data: dbPlace,
+            });
+
+            // Create reviews if any
+            if (dbReviews.length > 0) {
+              await tx.review.createMany({
+                data: dbReviews.map((review) => ({
+                  ...review,
+                  placeId: dbPlace.id,
+                })),
+              });
+            }
+          } catch (error) {
+            log.error('Error creating place', { error, placeId });
+            result.ratings.errors++;
+          }
         }
 
         // For ratings, we need to use upsert to handle both creation and updates

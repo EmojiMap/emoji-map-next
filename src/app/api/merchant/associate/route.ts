@@ -4,6 +4,7 @@ import { auth } from '@clerk/nextjs/server';
 import { z } from 'zod';
 import { env } from '@/env';
 import { prisma } from '@/lib/db';
+import { transformGoogleDetailsToDbPlace } from '@/services/places/details/transformers/google-details-to-db-place';
 import type { DetailResponse } from '@/types/details';
 import type { ErrorResponse } from '@/types/error-response';
 
@@ -96,29 +97,20 @@ export async function POST(request: NextRequest) {
 
       if (!place) {
         const placeDetails = await fetchPlaceDetails(placeId);
+        const { place: dbPlace, reviews: dbReviews } =
+          transformGoogleDetailsToDbPlace(placeDetails);
+
         place = await tx.place.upsert({
           where: { id: placeId },
           create: {
-            id: placeId,
-            name: placeDetails.displayName,
-            description: placeDetails.editorialSummary,
-            latitude: placeDetails.location.latitude,
-            longitude: placeDetails.location.longitude,
+            ...dbPlace,
             reviews: {
               createMany: {
-                data: placeDetails.reviews
-                  .map((review) => ({
-                    name: review.name,
-                    relativePublishTimeDescription:
-                      review.relativePublishTimeDescription,
-                    rating: review.rating,
-                    text: review.text?.text || '',
-                  }))
-                  .filter((review) => Boolean(review.text)),
+                data: dbReviews,
               },
             },
           },
-          update: {}, // No updates needed if it exists
+          update: {},
           include: {
             photos: true,
             ratings: true,

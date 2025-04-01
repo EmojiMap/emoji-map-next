@@ -3,9 +3,12 @@ import { auth } from '@clerk/nextjs/server';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { GET, POST } from '@/app/api/places/favorite/route';
 import { prisma } from '@/lib/db';
+import { fetchDetails } from '@/services/places/details/fetch-details/fetch-details';
+import { transformGoogleDetailsToDbPlace } from '@/services/places/details/transformers/google-details-to-db-place';
 import { getUserId } from '@/services/user/get-user-id';
+import type { Detail } from '@/types/details';
 import { log } from '@/utils/log';
-import type { Favorite, Place, User } from '@prisma/client';
+import type { Favorite, Place, User, Review } from '@prisma/client';
 
 // Helper function to extract JSON from response
 async function getResponseBody(response: Response) {
@@ -41,13 +44,30 @@ vi.mock('@/lib/db', () => ({
       create: vi.fn(),
       delete: vi.fn(),
     },
+    review: {
+      createMany: vi.fn(),
+    },
   },
 }));
+
+// Mock fetchDetails service
+vi.mock('@/services/places/details/fetch-details/fetch-details', () => ({
+  fetchDetails: vi.fn(),
+}));
+
+// Mock transformGoogleDetailsToDbPlace service
+vi.mock(
+  '@/services/places/details/transformers/google-details-to-db-place',
+  () => ({
+    transformGoogleDetailsToDbPlace: vi.fn(),
+  })
+);
 
 vi.mock('@/utils/log', () => ({
   log: {
     error: vi.fn(),
     debug: vi.fn(),
+    info: vi.fn(),
   },
 }));
 
@@ -69,23 +89,47 @@ describe('Favorite API Routes', () => {
     updatedAt: mockDate,
   } as User;
 
-  const mockPlace = {
+  const mockPlace: Place = {
     id: mockPlaceId,
-    name: null,
-    description: null,
-    latitude: null,
-    longitude: null,
+    name: 'Test Place',
+    latitude: 37.7749,
+    longitude: -122.4194,
     createdAt: mockDate,
     updatedAt: mockDate,
-  } as Place;
+    address: '123 Test St',
+    merchantId: null,
+    allowsDogs: false,
+    delivery: false,
+    editorialSummary: 'A great restaurant with amazing food',
+    formattedAddress: '123 Test St, San Francisco, CA',
+    generativeSummary: 'This is a generative summary of the restaurant',
+    goodForChildren: true,
+    dineIn: true,
+    goodForGroups: true,
+    isFree: false,
+    liveMusic: false,
+    menuForChildren: true,
+    outdoorSeating: true,
+    acceptsCashOnly: false,
+    acceptsCreditCards: true,
+    acceptsDebitCards: true,
+    priceLevel: 2,
+    primaryTypeDisplayName: 'Restaurant',
+    rating: 4.5,
+    servesCoffee: true,
+    servesDessert: true,
+    takeout: true,
+    restroom: true,
+    userRatingCount: 100,
+  };
 
-  const mockFavorite = {
+  const mockFavorite: Favorite = {
     id: 'favorite123',
     userId: mockUserId,
     placeId: mockPlaceId,
     createdAt: mockDate,
     updatedAt: mockDate,
-  } as Favorite;
+  };
 
   beforeEach(() => {
     // Set up fake timers
@@ -177,7 +221,109 @@ describe('Favorite API Routes', () => {
 
       // Mock place not found, then created
       vi.mocked(prisma.place.findUnique).mockResolvedValueOnce(null);
+
+      // Mock Google Places details
+      const mockGoogleDetails: Detail = {
+        name: 'Test Place',
+        rating: 4.5,
+        reviews: [
+          {
+            id: 'review_1',
+            relativePublishTimeDescription: '2 days ago',
+            rating: 5,
+            text: {
+              text: 'Great place!',
+              languageCode: 'en',
+            },
+            originalText: {
+              text: 'Great place!',
+              languageCode: 'en',
+            },
+            status: 'DEFAULT',
+          },
+          {
+            id: 'review_2',
+            relativePublishTimeDescription: '1 week ago',
+            rating: 4,
+            text: {
+              text: 'Good experience',
+              languageCode: 'en',
+            },
+            originalText: {
+              text: 'Good experience',
+              languageCode: 'en',
+            },
+            status: 'DEFAULT',
+          },
+        ],
+        priceLevel: 2,
+        userRatingCount: 100,
+        displayName: 'Test Place Display Name',
+        primaryTypeDisplayName: 'Restaurant',
+        takeout: true,
+        delivery: false,
+        dineIn: true,
+        editorialSummary: 'A great restaurant with amazing food',
+        outdoorSeating: true,
+        liveMusic: false,
+        menuForChildren: true,
+        servesDessert: true,
+        servesCoffee: true,
+        goodForChildren: true,
+        goodForGroups: true,
+        allowsDogs: false,
+        restroom: true,
+        paymentOptions: {
+          acceptsCreditCards: true,
+          acceptsDebitCards: true,
+          acceptsCashOnly: false,
+        },
+        generativeSummary: 'This is a generative summary of the restaurant',
+        isFree: false,
+        location: {
+          latitude: 37.7749,
+          longitude: -122.4194,
+        },
+        formattedAddress: '123 Test St, San Francisco, CA',
+      };
+
+      // Mock fetchDetails to return our mock Google details
+      const mockFetchDetails = vi.mocked(fetchDetails);
+      mockFetchDetails.mockResolvedValue(mockGoogleDetails);
+
+      // Mock transformed reviews
+      const mockTransformedReviews: Omit<
+        Review,
+        'placeId' | 'createdAt' | 'updatedAt'
+      >[] = [
+        {
+          id: 'review_1',
+          relativePublishTimeDescription: '2 days ago',
+          rating: 5,
+          text: 'Great place!',
+          status: 'DEFAULT',
+        },
+        {
+          id: 'review_2',
+          relativePublishTimeDescription: '1 week ago',
+          rating: 4,
+          text: 'Good experience',
+          status: 'DEFAULT',
+        },
+      ];
+
+      // Mock transformGoogleDetailsToDbPlace to return our transformed data
+      const mockTransform = vi.mocked(transformGoogleDetailsToDbPlace);
+      mockTransform.mockReturnValue({
+        place: mockPlace,
+        reviews: mockTransformedReviews,
+      });
+
+      // Mock place creation
       vi.mocked(prisma.place.create).mockResolvedValueOnce(mockPlace);
+
+      // Mock reviews creation
+      vi.mocked(prisma.review.createMany).mockResolvedValue({ count: 2 });
 
       // Mock no existing favorite
       vi.mocked(prisma.favorite.findUnique).mockResolvedValueOnce(null);
@@ -194,8 +340,16 @@ describe('Favorite API Routes', () => {
       const body = await getResponseBody(response);
 
       expect(getUserId).toHaveBeenCalledWith(request);
+      expect(mockFetchDetails).toHaveBeenCalledWith(mockPlaceId);
+      expect(mockTransform).toHaveBeenCalledWith(mockGoogleDetails);
       expect(prisma.place.create).toHaveBeenCalledWith({
-        data: { id: mockPlaceId },
+        data: mockPlace,
+      });
+      expect(prisma.review.createMany).toHaveBeenCalledWith({
+        data: mockTransformedReviews.map((review) => ({
+          ...review,
+          placeId: mockPlaceId,
+        })),
       });
       expect(prisma.favorite.create).toHaveBeenCalledWith({
         data: {

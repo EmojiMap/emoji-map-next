@@ -73,7 +73,13 @@ describe('data-transformer', () => {
       // Assert
       expect(result).toEqual({
         name: 'Test Restaurant',
-        reviews: mockData.reviews,
+        reviews: expect.arrayContaining([
+          expect.objectContaining({
+            ...mockData.reviews[0],
+            status: 'DEFAULT',
+            id: expect.any(String),
+          }),
+        ]),
         rating: 4.5,
         priceLevel: 2, // PRICE_LEVEL_MODERATE maps to 2
         userRatingCount: 100,
@@ -270,6 +276,67 @@ describe('data-transformer', () => {
         expect(result.priceLevel).toBe(expected);
         expect(result.isFree).toBe(isFree);
       });
+    });
+
+    it('should transform reviews with correct status and unique ids', () => {
+      // Arrange
+      const mockData: ValidatedGoogleDetailsResponse = {
+        name: 'Review Test Place',
+        reviews: [
+          {
+            name: 'Review 1',
+            rating: 5,
+            relativePublishTimeDescription: '2 days ago',
+            text: {
+              text: 'Great place!',
+              languageCode: 'en',
+            },
+            originalText: {
+              text: 'Great place!',
+              languageCode: 'en',
+            },
+          },
+          {
+            name: 'Review 2',
+            rating: 4,
+            relativePublishTimeDescription: '1 week ago',
+            text: {
+              text: 'Good experience',
+              languageCode: 'en',
+            },
+            originalText: {
+              text: 'Good experience',
+              languageCode: 'en',
+            },
+          },
+        ],
+        rating: 4.5,
+        userRatingCount: 2,
+        priceLevel: 'PRICE_LEVEL_MODERATE',
+        location: {
+          latitude: 37.7749,
+          longitude: -122.4194,
+        },
+        formattedAddress: '123 Review St, San Francisco, CA 94105',
+      };
+
+      // Act
+      const result = transformDetailsData(mockData);
+
+      // Assert
+      expect(result.reviews).toHaveLength(2);
+      result.reviews.forEach((review, index) => {
+        expect(review).toMatchObject({
+          ...mockData.reviews[index],
+          status: 'DEFAULT',
+        });
+        expect(review.id).toBeDefined();
+        expect(typeof review.id).toBe('string');
+      });
+
+      // Verify IDs are unique
+      const ids = result.reviews.map((review) => review.id);
+      expect(new Set(ids).size).toBe(ids.length);
     });
   });
 });

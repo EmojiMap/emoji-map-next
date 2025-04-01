@@ -2,11 +2,21 @@ import { NextRequest } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { POST } from '@/app/api/merchant/associate/route';
+import { transformGoogleDetailsToDbPlace } from '@/services/places/details/transformers/google-details-to-db-place';
+import type { Detail } from '@/types/details';
+import type { Place, Review } from '@prisma/client';
 
 // Mock dependencies
 vi.mock('@clerk/nextjs/server', () => ({
   auth: vi.fn(),
 }));
+
+vi.mock(
+  '@/services/places/details/transformers/google-details-to-db-place',
+  () => ({
+    transformGoogleDetailsToDbPlace: vi.fn(),
+  })
+);
 
 vi.mock('@/lib/db', () => ({
   prisma: {
@@ -40,6 +50,9 @@ const mockTx = {
   },
 };
 
+// Fixed mock date for consistent testing
+const mockDate = new Date('2023-01-01T12:00:00Z');
+
 // Mock data
 const mockUser = {
   id: 'user-1',
@@ -47,35 +60,123 @@ const mockUser = {
   username: 'testuser',
 };
 
-const mockPlaceDetails = {
+const mockGoogleDetails: Detail = {
+  name: 'Test Place',
+  rating: 4.5,
+  reviews: [
+    {
+      id: 'review_1',
+      relativePublishTimeDescription: '2 days ago',
+      rating: 5,
+      text: {
+        text: 'Great place!',
+        languageCode: 'en',
+      },
+      originalText: {
+        text: 'Great place!',
+        languageCode: 'en',
+      },
+      status: 'DEFAULT',
+    },
+    {
+      id: 'review_2',
+      relativePublishTimeDescription: '1 week ago',
+      rating: 4,
+      text: {
+        text: 'Good experience',
+        languageCode: 'en',
+      },
+      originalText: {
+        text: 'Good experience',
+        languageCode: 'en',
+      },
+      status: 'DEFAULT',
+    },
+  ],
+  priceLevel: 2,
+  userRatingCount: 100,
   displayName: 'Test Place Display Name',
-  editorialSummary: 'A great test place',
+  primaryTypeDisplayName: 'Restaurant',
+  takeout: true,
+  delivery: false,
+  dineIn: true,
+  editorialSummary: 'A great restaurant with amazing food',
+  outdoorSeating: true,
+  liveMusic: false,
+  menuForChildren: true,
+  servesDessert: true,
+  servesCoffee: true,
+  goodForChildren: true,
+  goodForGroups: true,
+  allowsDogs: false,
+  restroom: true,
+  paymentOptions: {
+    acceptsCreditCards: true,
+    acceptsDebitCards: true,
+    acceptsCashOnly: false,
+  },
+  generativeSummary: 'This is a generative summary of the restaurant',
+  isFree: false,
   location: {
     latitude: 37.7749,
     longitude: -122.4194,
   },
-  reviews: [
-    {
-      name: 'Reviewer 1',
-      relativePublishTimeDescription: '2 days ago',
-      rating: 5,
-      text: { text: 'Great place!' },
-    },
-  ],
+  formattedAddress: '123 Test St, San Francisco, CA',
 };
 
-const mockPlace = {
+const mockPlace: Place = {
   id: 'place-1',
   name: 'Test Place',
-  description: 'A great test place',
   latitude: 37.7749,
   longitude: -122.4194,
+  createdAt: mockDate,
+  updatedAt: mockDate,
+  address: '123 Test St',
   merchantId: null,
-  photos: [],
-  ratings: [],
-  reviews: [],
-  favorites: [],
+  allowsDogs: false,
+  delivery: false,
+  editorialSummary: 'A great restaurant with amazing food',
+  formattedAddress: '123 Test St, San Francisco, CA',
+  generativeSummary: 'This is a generative summary of the restaurant',
+  goodForChildren: true,
+  dineIn: true,
+  goodForGroups: true,
+  isFree: false,
+  liveMusic: false,
+  menuForChildren: true,
+  outdoorSeating: true,
+  acceptsCashOnly: false,
+  acceptsCreditCards: true,
+  acceptsDebitCards: true,
+  priceLevel: 2,
+  primaryTypeDisplayName: 'Restaurant',
+  rating: 4.5,
+  servesCoffee: true,
+  servesDessert: true,
+  takeout: true,
+  restroom: true,
+  userRatingCount: 100,
 };
+
+const mockTransformedReviews: Omit<
+  Review,
+  'placeId' | 'createdAt' | 'updatedAt'
+>[] = [
+  {
+    id: 'review_1',
+    relativePublishTimeDescription: '2 days ago',
+    rating: 5,
+    text: 'Great place!',
+    status: 'DEFAULT',
+  },
+  {
+    id: 'review_2',
+    relativePublishTimeDescription: '1 week ago',
+    rating: 4,
+    text: 'Good experience',
+    status: 'DEFAULT',
+  },
+];
 
 const mockMerchant = {
   id: 'merchant-1',
@@ -95,6 +196,9 @@ function createNextRequest(body: RequestBody): NextRequest {
 describe('Merchant Associate Route', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Set up fake timers
+    vi.useFakeTimers();
+    vi.setSystemTime(mockDate);
     // Default auth mock to return a userId
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(auth).mockResolvedValue({ userId: 'user-1' } as any);
@@ -132,12 +236,24 @@ describe('Merchant Associate Route', () => {
     vi.mocked(mockTx.place.findUnique).mockResolvedValue(null);
     vi.mocked(mockTx.merchant.findUnique).mockResolvedValue(null);
     vi.mocked(mockTx.merchant.create).mockResolvedValue(mockMerchant);
-    vi.mocked(mockTx.place.upsert).mockResolvedValue(mockPlace);
+    vi.mocked(mockTx.place.upsert).mockResolvedValue({
+      ...mockPlace,
+      photos: [],
+      ratings: [],
+      reviews: mockTransformedReviews,
+      favorites: [],
+    });
 
     // Mock the place details API response
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ data: mockPlaceDetails }),
+      json: () => Promise.resolve({ data: mockGoogleDetails }),
+    });
+
+    // Mock transformGoogleDetailsToDbPlace
+    vi.mocked(transformGoogleDetailsToDbPlace).mockReturnValue({
+      place: mockPlace,
+      reviews: mockTransformedReviews,
     });
 
     const request = createNextRequest({ placeId: 'place-1' });
@@ -146,25 +262,16 @@ describe('Merchant Associate Route', () => {
     const data = await response.json();
 
     expect(global.fetch).toHaveBeenCalled();
+    expect(transformGoogleDetailsToDbPlace).toHaveBeenCalledWith(
+      mockGoogleDetails
+    );
     expect(mockTx.place.upsert).toHaveBeenCalledWith({
       where: { id: 'place-1' },
       create: {
-        id: 'place-1',
-        name: mockPlaceDetails.displayName,
-        description: mockPlaceDetails.editorialSummary,
-        latitude: mockPlaceDetails.location.latitude,
-        longitude: mockPlaceDetails.location.longitude,
+        ...mockPlace,
         reviews: {
           createMany: {
-            data: [
-              {
-                name: mockPlaceDetails.reviews[0].name,
-                relativePublishTimeDescription:
-                  mockPlaceDetails.reviews[0].relativePublishTimeDescription,
-                rating: mockPlaceDetails.reviews[0].rating,
-                text: mockPlaceDetails.reviews[0].text.text,
-              },
-            ],
+            data: mockTransformedReviews,
           },
         },
       },
@@ -178,6 +285,7 @@ describe('Merchant Associate Route', () => {
     });
     expect(response.status).toBe(200);
     expect(data.success).toBe(true);
+    expect(data.data.merchant).toEqual(mockMerchant);
   });
 
   it('should not make request to create place if it already exists', async () => {

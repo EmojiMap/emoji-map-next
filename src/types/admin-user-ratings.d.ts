@@ -1,7 +1,7 @@
 import type { Place, Rating } from '@prisma/client';
 
 export type RatingWithPlace = Rating & {
-  place: Pick<Place, 'name' | 'description'>;
+  place: Pick<Place, 'name' | 'editorialSummary'>;
 };
 
 export type RatingResponse = {

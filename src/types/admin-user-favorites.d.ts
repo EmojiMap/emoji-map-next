@@ -1,7 +1,7 @@
 import type { Favorite, Place } from '@prisma/client';
 
 export type FavoriteWithPlace = Favorite & {
-  place: Pick<Place, 'name' | 'description'>;
+  place: Pick<Place, 'name' | 'editorialSummary'>;
 };
 
 export type FavoriteResponse = {
