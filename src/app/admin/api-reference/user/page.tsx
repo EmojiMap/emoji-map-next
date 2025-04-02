@@ -28,7 +28,6 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { env } from '@/env';
 import type { User, Favorite, Rating } from '@prisma/client';
 
 interface UserResponse {
@@ -50,7 +49,6 @@ type UpdateUserFormValues = z.infer<typeof updateUserFormSchema>;
 
 export default function UserPage() {
   const { getToken } = useAuth();
-  const apiBaseUrl = env.NEXT_PUBLIC_SITE_URL;
   const queryClient = useQueryClient();
 
   // Form for updating user
@@ -68,7 +66,7 @@ export default function UserPage() {
     queryKey: ['user'],
     queryFn: async () => {
       const token = await getToken();
-      const response = await fetch(`${apiBaseUrl}/api/user`, {
+      const response = await fetch(`/api/user`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -86,7 +84,7 @@ export default function UserPage() {
   const updateUserMutation = useMutation({
     mutationFn: async (values: UpdateUserFormValues) => {
       const token = await getToken();
-      const response = await fetch(`${apiBaseUrl}/api/user`, {
+      const response = await fetch(`/api/user`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -331,7 +329,7 @@ function FavoritesCard({ favorites }: FavoritesCardProps) {
     <Card>
       <CardHeader>
         <div className='flex items-center justify-between'>
-          <div>
+          <div className='space-y-1.5'>
             <CardTitle>Favorites</CardTitle>
             <CardDescription>User&apos;s favorite locations</CardDescription>
           </div>
@@ -408,7 +406,7 @@ function RatingsCard({ ratings }: RatingsCardProps) {
     <Card>
       <CardHeader>
         <div className='flex items-center justify-between'>
-          <div>
+          <div className='space-y-1.5'>
             <CardTitle>Ratings</CardTitle>
             <CardDescription>User&apos;s location ratings</CardDescription>
           </div>
