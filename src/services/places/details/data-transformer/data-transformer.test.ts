@@ -7,10 +7,11 @@ describe('data-transformer', () => {
     it('should transform a complete response correctly', () => {
       // Arrange
       const mockData: ValidatedGoogleDetailsResponse = {
+        id: 'test_place_123',
         name: 'Test Restaurant',
         reviews: [
           {
-            name: 'Review 1',
+            name: 'places/test_place_123/reviews/review_1',
             rating: 5,
             relativePublishTimeDescription: '2 days ago',
             text: {
@@ -72,13 +73,32 @@ describe('data-transformer', () => {
 
       // Assert
       expect(result).toEqual({
-        name: 'Test Restaurant',
-        reviews: mockData.reviews,
+        id: 'test_place_123',
+        name: 'Test Restaurant Display Name',
+        displayName: 'Test Restaurant Display Name',
+        location: {
+          latitude: 37.7749,
+          longitude: -122.4194,
+        },
         rating: 4.5,
+        paymentOptions: {
+          acceptsCreditCards: true,
+          acceptsDebitCards: true,
+          acceptsCashOnly: false,
+        },
+        reviews: expect.arrayContaining([
+          expect.objectContaining({
+            id: 'review_1',
+            status: 'DEFAULT',
+            rating: 5,
+            relativePublishTimeDescription: '2 days ago',
+            text: 'Great place!',
+          }),
+        ]),
+        googleRating: 4.5,
         priceLevel: 2, // PRICE_LEVEL_MODERATE maps to 2
         userRatingCount: 100,
         openNow: true,
-        displayName: 'Test Restaurant Display Name',
         primaryTypeDisplayName: 'Restaurant',
         takeout: true,
         delivery: false,
@@ -93,24 +113,22 @@ describe('data-transformer', () => {
         goodForGroups: true,
         allowsDogs: false,
         restroom: true,
-        paymentOptions: {
-          acceptsCreditCards: true,
-          acceptsDebitCards: true,
-          acceptsCashOnly: false,
-        },
+        acceptsCashOnly: false,
+        acceptsCreditCards: true,
+        acceptsDebitCards: true,
         generativeSummary: 'This is a generative summary of the restaurant',
         isFree: false,
-        location: {
-          latitude: 37.7749,
-          longitude: -122.4194,
-        },
-        formattedAddress: '123 Test St, San Francisco, CA 94105',
+        latitude: 37.7749,
+        longitude: -122.4194,
+        address: '123 Test St, San Francisco, CA 94105',
+        merchantId: null,
       });
     });
 
     it('should handle a free place correctly', () => {
       // Arrange
       const mockData: ValidatedGoogleDetailsResponse = {
+        id: 'free_place_123',
         name: 'Free Museum',
         priceLevel: 'PRICE_LEVEL_FREE',
         rating: 4.8,
@@ -134,6 +152,7 @@ describe('data-transformer', () => {
     it('should handle a place with unspecified price level', () => {
       // Arrange
       const mockData: ValidatedGoogleDetailsResponse = {
+        id: 'unspecified_price_123',
         name: 'Unknown Price Place',
         priceLevel: 'PRICE_LEVEL_UNSPECIFIED',
         rating: 4.0,
@@ -157,6 +176,7 @@ describe('data-transformer', () => {
     it('should handle missing optional fields with default values', () => {
       // Arrange
       const mockData: ValidatedGoogleDetailsResponse = {
+        id: 'minimal_place_123',
         name: 'Minimal Place',
         rating: 3.5,
         userRatingCount: 10,
@@ -174,10 +194,20 @@ describe('data-transformer', () => {
 
       // Assert
       expect(result).toMatchObject({
-        name: 'Minimal Place',
-        reviews: [],
+        id: 'minimal_place_123',
+        name: '',
         displayName: '',
-        primaryTypeDisplayName: '',
+        location: {
+          latitude: 37.7749,
+          longitude: -122.4194,
+        },
+        rating: 3.5,
+        paymentOptions: {
+          acceptsCreditCards: false,
+          acceptsDebitCards: false,
+          acceptsCashOnly: false,
+        },
+        reviews: [],
         takeout: false,
         delivery: false,
         dineIn: false,
@@ -191,24 +221,22 @@ describe('data-transformer', () => {
         goodForGroups: false,
         allowsDogs: false,
         restroom: false,
-        paymentOptions: {
-          acceptsCreditCards: false,
-          acceptsDebitCards: false,
-          acceptsCashOnly: false,
-        },
+        acceptsCashOnly: false,
+        acceptsCreditCards: false,
+        acceptsDebitCards: false,
         generativeSummary: '',
         isFree: false,
-        location: {
-          latitude: 37.7749,
-          longitude: -122.4194,
-        },
-        formattedAddress: '123 Minimal St, San Francisco, CA 94105',
+        latitude: 37.7749,
+        longitude: -122.4194,
+        address: '123 Minimal St, San Francisco, CA 94105',
+        merchantId: null,
       });
     });
 
     it('should handle missing nested fields correctly', () => {
       // Arrange
       const mockData: ValidatedGoogleDetailsResponse = {
+        id: 'partial_place_123',
         name: 'Partial Data Place',
         reviews: [],
         rating: 3.5,
@@ -231,7 +259,7 @@ describe('data-transformer', () => {
       const result = transformDetailsData(mockData);
 
       // Assert
-      expect(result.displayName).toBe('');
+      expect(result.name).toBe('');
       expect(result.primaryTypeDisplayName).toBe('');
       expect(result.editorialSummary).toBe('');
       expect(result.generativeSummary).toBe('');
@@ -251,6 +279,7 @@ describe('data-transformer', () => {
       priceLevels.forEach(({ input, expected, isFree }) => {
         // Arrange
         const mockData: ValidatedGoogleDetailsResponse = {
+          id: `price_level_${input}`,
           name: `${input} Place`,
           priceLevel: input,
           rating: 4.0,
@@ -270,6 +299,73 @@ describe('data-transformer', () => {
         expect(result.priceLevel).toBe(expected);
         expect(result.isFree).toBe(isFree);
       });
+    });
+
+    it('should transform reviews with correct status and unique ids', () => {
+      // Arrange
+      const mockData: ValidatedGoogleDetailsResponse = {
+        id: 'review_test_place_123',
+        name: 'Review Test Place',
+        reviews: [
+          {
+            name: 'places/review_test_place_123/reviews/review_1',
+            rating: 5,
+            relativePublishTimeDescription: '2 days ago',
+            text: {
+              text: 'Great place!',
+              languageCode: 'en',
+            },
+            originalText: {
+              text: 'Great place!',
+              languageCode: 'en',
+            },
+          },
+          {
+            name: 'places/review_test_place_123/reviews/review_2',
+            rating: 4,
+            relativePublishTimeDescription: '1 week ago',
+            text: {
+              text: 'Good experience',
+              languageCode: 'en',
+            },
+            originalText: {
+              text: 'Good experience',
+              languageCode: 'en',
+            },
+          },
+        ],
+        rating: 4.5,
+        userRatingCount: 2,
+        priceLevel: 'PRICE_LEVEL_MODERATE',
+        location: {
+          latitude: 37.7749,
+          longitude: -122.4194,
+        },
+        formattedAddress: '123 Review St, San Francisco, CA 94105',
+      };
+
+      // Act
+      const result = transformDetailsData(mockData);
+
+      // Assert
+      expect(result.reviews).toHaveLength(2);
+      result.reviews.forEach((review, index) => {
+        expect(review).toMatchObject({
+          rating: mockData.reviews[index].rating,
+          relativePublishTimeDescription:
+            mockData.reviews[index].relativePublishTimeDescription,
+          text:
+            mockData.reviews[index].text?.text ??
+            mockData.reviews[index].originalText?.text ??
+            '',
+          status: 'DEFAULT',
+        });
+        expect(review.id).toBe(`review_${index + 1}`);
+      });
+
+      // Verify IDs are unique
+      const ids = result.reviews.map((review) => review.id);
+      expect(new Set(ids).size).toBe(ids.length);
     });
   });
 });

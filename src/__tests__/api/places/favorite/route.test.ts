@@ -3,7 +3,9 @@ import { auth } from '@clerk/nextjs/server';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { GET, POST } from '@/app/api/places/favorite/route';
 import { prisma } from '@/lib/db';
+import { fetchDetails } from '@/services/places/details/fetch-details/fetch-details';
 import { getUserId } from '@/services/user/get-user-id';
+import type { PlaceWithReviews } from '@/types/details';
 import { log } from '@/utils/log';
 import type { Favorite, Place, User } from '@prisma/client';
 
@@ -41,13 +43,22 @@ vi.mock('@/lib/db', () => ({
       create: vi.fn(),
       delete: vi.fn(),
     },
+    review: {
+      createMany: vi.fn(),
+    },
   },
+}));
+
+// Mock fetchDetails service
+vi.mock('@/services/places/details/fetch-details/fetch-details', () => ({
+  fetchDetails: vi.fn(),
 }));
 
 vi.mock('@/utils/log', () => ({
   log: {
     error: vi.fn(),
     debug: vi.fn(),
+    info: vi.fn(),
   },
 }));
 
@@ -69,23 +80,106 @@ describe('Favorite API Routes', () => {
     updatedAt: mockDate,
   } as User;
 
-  const mockPlace = {
+  const mockPlace: Place = {
     id: mockPlaceId,
-    name: null,
-    description: null,
-    latitude: null,
-    longitude: null,
+    name: 'Test Place',
+    latitude: 37.7749,
+    longitude: -122.4194,
     createdAt: mockDate,
     updatedAt: mockDate,
-  } as Place;
+    address: '123 Test St',
+    merchantId: null,
+    allowsDogs: false,
+    delivery: false,
+    editorialSummary: 'A great restaurant with amazing food',
+    generativeSummary: 'This is a generative summary of the restaurant',
+    goodForChildren: true,
+    dineIn: true,
+    goodForGroups: true,
+    isFree: false,
+    liveMusic: false,
+    menuForChildren: true,
+    outdoorSeating: true,
+    acceptsCashOnly: false,
+    acceptsCreditCards: true,
+    acceptsDebitCards: true,
+    priceLevel: 2,
+    primaryTypeDisplayName: 'Restaurant',
+    googleRating: 4.5,
+    servesCoffee: true,
+    servesDessert: true,
+    takeout: true,
+    restroom: true,
+    openNow: true,
+    userRatingCount: 100,
+  };
 
-  const mockFavorite = {
+  const mockPlaceDetails: PlaceWithReviews = {
+    id: mockPlaceId,
+    name: 'Test Place',
+    displayName: 'Test Place',
+    latitude: 37.7749,
+    longitude: -122.4194,
+    location: {
+      latitude: 37.7749,
+      longitude: -122.4194,
+    },
+    googleRating: 4.5,
+    rating: 4.5,
+    paymentOptions: {
+      acceptsCreditCards: true,
+      acceptsDebitCards: true,
+      acceptsCashOnly: false,
+    },
+    address: '123 Test St',
+    merchantId: null,
+    allowsDogs: false,
+    delivery: false,
+    editorialSummary: 'A great restaurant with amazing food',
+    generativeSummary: 'This is a generative summary of the restaurant',
+    goodForChildren: true,
+    dineIn: true,
+    goodForGroups: true,
+    isFree: false,
+    liveMusic: false,
+    menuForChildren: true,
+    outdoorSeating: true,
+    acceptsCashOnly: false,
+    acceptsCreditCards: true,
+    acceptsDebitCards: true,
+    priceLevel: 2,
+    primaryTypeDisplayName: 'Restaurant',
+    servesCoffee: true,
+    servesDessert: true,
+    takeout: true,
+    restroom: true,
+    openNow: true,
+    userRatingCount: 100,
+    reviews: [
+      {
+        id: 'review_1',
+        relativePublishTimeDescription: '2 days ago',
+        rating: 5,
+        text: 'Great place!',
+        status: 'DEFAULT',
+      },
+      {
+        id: 'review_2',
+        relativePublishTimeDescription: '1 week ago',
+        rating: 4,
+        text: 'Good experience',
+        status: 'DEFAULT',
+      },
+    ],
+  };
+
+  const mockFavorite: Favorite = {
     id: 'favorite123',
     userId: mockUserId,
     placeId: mockPlaceId,
     createdAt: mockDate,
     updatedAt: mockDate,
-  } as Favorite;
+  };
 
   beforeEach(() => {
     // Set up fake timers
@@ -177,7 +271,15 @@ describe('Favorite API Routes', () => {
 
       // Mock place not found, then created
       vi.mocked(prisma.place.findUnique).mockResolvedValueOnce(null);
+
+      // Mock fetchDetails to return our mock place details
+      vi.mocked(fetchDetails).mockResolvedValueOnce(mockPlaceDetails);
+
+      // Mock place creation
       vi.mocked(prisma.place.create).mockResolvedValueOnce(mockPlace);
+
+      // Mock reviews creation
+      vi.mocked(prisma.review.createMany).mockResolvedValue({ count: 2 });
 
       // Mock no existing favorite
       vi.mocked(prisma.favorite.findUnique).mockResolvedValueOnce(null);
@@ -194,8 +296,45 @@ describe('Favorite API Routes', () => {
       const body = await getResponseBody(response);
 
       expect(getUserId).toHaveBeenCalledWith(request);
+      expect(fetchDetails).toHaveBeenCalledWith(mockPlaceId);
       expect(prisma.place.create).toHaveBeenCalledWith({
-        data: { id: mockPlaceId },
+        data: {
+          id: mockPlaceDetails.id,
+          name: mockPlaceDetails.name,
+          latitude: mockPlaceDetails.latitude,
+          longitude: mockPlaceDetails.longitude,
+          address: mockPlaceDetails.address,
+          merchantId: null,
+          allowsDogs: mockPlaceDetails.allowsDogs,
+          delivery: mockPlaceDetails.delivery,
+          editorialSummary: mockPlaceDetails.editorialSummary,
+          generativeSummary: mockPlaceDetails.generativeSummary,
+          goodForChildren: mockPlaceDetails.goodForChildren,
+          dineIn: mockPlaceDetails.dineIn,
+          goodForGroups: mockPlaceDetails.goodForGroups,
+          isFree: mockPlaceDetails.isFree,
+          liveMusic: mockPlaceDetails.liveMusic,
+          menuForChildren: mockPlaceDetails.menuForChildren,
+          outdoorSeating: mockPlaceDetails.outdoorSeating,
+          acceptsCashOnly: mockPlaceDetails.acceptsCashOnly,
+          acceptsCreditCards: mockPlaceDetails.acceptsCreditCards,
+          acceptsDebitCards: mockPlaceDetails.acceptsDebitCards,
+          priceLevel: mockPlaceDetails.priceLevel,
+          primaryTypeDisplayName: mockPlaceDetails.primaryTypeDisplayName,
+          googleRating: mockPlaceDetails.googleRating,
+          servesCoffee: mockPlaceDetails.servesCoffee,
+          servesDessert: mockPlaceDetails.servesDessert,
+          takeout: mockPlaceDetails.takeout,
+          restroom: mockPlaceDetails.restroom,
+          openNow: mockPlaceDetails.openNow,
+          userRatingCount: mockPlaceDetails.userRatingCount,
+        },
+      });
+      expect(prisma.review.createMany).toHaveBeenCalledWith({
+        data: mockPlaceDetails.reviews.map((review) => ({
+          ...review,
+          placeId: mockPlaceDetails.id,
+        })),
       });
       expect(prisma.favorite.create).toHaveBeenCalledWith({
         data: {

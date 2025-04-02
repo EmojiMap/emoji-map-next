@@ -96,29 +96,49 @@ export async function POST(request: NextRequest) {
 
       if (!place) {
         const placeDetails = await fetchPlaceDetails(placeId);
+
         place = await tx.place.upsert({
           where: { id: placeId },
           create: {
-            id: placeId,
-            name: placeDetails.displayName,
-            description: placeDetails.editorialSummary,
-            latitude: placeDetails.location.latitude,
-            longitude: placeDetails.location.longitude,
+            id: placeDetails.id,
+            name: placeDetails.name,
+            latitude: placeDetails.latitude,
+            longitude: placeDetails.longitude,
+            address: placeDetails.address,
+            merchantId: null,
+            allowsDogs: placeDetails.allowsDogs,
+            delivery: placeDetails.delivery,
+            editorialSummary: placeDetails.editorialSummary,
+            generativeSummary: placeDetails.generativeSummary,
+            goodForChildren: placeDetails.goodForChildren,
+            dineIn: placeDetails.dineIn,
+            goodForGroups: placeDetails.goodForGroups,
+            isFree: placeDetails.isFree,
+            liveMusic: placeDetails.liveMusic,
+            menuForChildren: placeDetails.menuForChildren,
+            outdoorSeating: placeDetails.outdoorSeating,
+            acceptsCashOnly: placeDetails.acceptsCashOnly,
+            acceptsCreditCards: placeDetails.acceptsCreditCards,
+            acceptsDebitCards: placeDetails.acceptsDebitCards,
+            priceLevel: placeDetails.priceLevel,
+            primaryTypeDisplayName: placeDetails.primaryTypeDisplayName,
+            googleRating: placeDetails.googleRating,
+            servesCoffee: placeDetails.servesCoffee,
+            servesDessert: placeDetails.servesDessert,
+            takeout: placeDetails.takeout,
+            restroom: placeDetails.restroom,
+            openNow: placeDetails.openNow,
+            userRatingCount: placeDetails.userRatingCount,
             reviews: {
               createMany: {
-                data: placeDetails.reviews
-                  .map((review) => ({
-                    name: review.name,
-                    relativePublishTimeDescription:
-                      review.relativePublishTimeDescription,
-                    rating: review.rating,
-                    text: review.text?.text || '',
-                  }))
-                  .filter((review) => Boolean(review.text)),
+                data: placeDetails.reviews.map((review) => ({
+                  ...review,
+                  placeId: placeDetails.id,
+                })),
               },
             },
           },
-          update: {}, // No updates needed if it exists
+          update: {},
           include: {
             photos: true,
             ratings: true,

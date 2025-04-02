@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { isNull, isUndefined, toNumber } from 'lodash-es';
 import { prisma } from '@/lib/db';
+import { fetchDetails } from '@/services/places/details/fetch-details/fetch-details';
 import { getUserId } from '@/services/user/get-user-id';
 import type { ErrorResponse } from '@/types/error-response';
 import { log } from '@/utils/log';
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest): Promise<
     });
 
     if (!user) {
-      log.error('User not found', { userId });
+      log.error('[RATING] User not found', { userId });
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest): Promise<
     const placeId = params?.placeId;
 
     if (!placeId) {
-      log.error('Place ID is required');
+      log.error('[RATING] Place ID is required');
       return NextResponse.json(
         { error: 'Place ID is required' },
         { status: 400 }
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest): Promise<
 
     if (!userRating) {
       log.error(
-        'Rating not provided, if exiting rating found, it will be removed'
+        '[RATING] Rating not provided, if exiting rating found, it will be removed'
       );
     }
 
@@ -70,12 +71,54 @@ export async function POST(request: NextRequest): Promise<
 
     // If place doesn't exist, create it
     if (!place) {
-      log.debug('Place not found, creating it');
+      log.debug('[RATING] Place not found, creating it');
+
+      const details = await fetchDetails(placeId);
+
+      log.info(`[RATING] fetched details from google`);
+
       place = await prisma.place.create({
         data: {
-          id: placeId,
+          id: details.id,
+          name: details.name,
+          latitude: details.latitude,
+          longitude: details.longitude,
+          address: details.address,
+          merchantId: null,
+          allowsDogs: details.allowsDogs,
+          delivery: details.delivery,
+          editorialSummary: details.editorialSummary,
+          generativeSummary: details.generativeSummary,
+          goodForChildren: details.goodForChildren,
+          dineIn: details.dineIn,
+          goodForGroups: details.goodForGroups,
+          isFree: details.isFree,
+          liveMusic: details.liveMusic,
+          menuForChildren: details.menuForChildren,
+          outdoorSeating: details.outdoorSeating,
+          acceptsCashOnly: details.acceptsCashOnly,
+          acceptsCreditCards: details.acceptsCreditCards,
+          acceptsDebitCards: details.acceptsDebitCards,
+          priceLevel: details.priceLevel,
+          primaryTypeDisplayName: details.primaryTypeDisplayName,
+          googleRating: details.googleRating,
+          servesCoffee: details.servesCoffee,
+          servesDessert: details.servesDessert,
+          takeout: details.takeout,
+          restroom: details.restroom,
+          openNow: details.openNow,
+          userRatingCount: details.userRatingCount,
         },
       });
+
+      if (details.reviews.length > 0) {
+        await prisma.review.createMany({
+          data: details.reviews.map((review) => ({
+            ...review,
+            placeId: details.id,
+          })),
+        });
+      }
     }
 
     // Check if the user has already rated this place
@@ -93,11 +136,11 @@ export async function POST(request: NextRequest): Promise<
 
     // If rating exists, check if the rating is being updated or removed
     if (existingRating) {
-      log.debug('Prior rating exists');
+      log.debug('[RATING] Prior rating exists');
 
       // If rating is not provided, remove the rating
       if (!userRating || isNull(userRating) || isUndefined(userRating)) {
-        log.debug('Rating is being removed');
+        log.debug('[RATING] Rating is being removed');
         rating = await prisma.rating.delete({
           where: { id: existingRating.id },
         });
@@ -105,7 +148,7 @@ export async function POST(request: NextRequest): Promise<
       }
       // If rating is being updated to the same rating, delete the rating
       else if (existingRating.rating === toNumber(userRating)) {
-        log.debug('Rating is being removed');
+        log.debug('[RATING] Rating is being removed');
         rating = await prisma.rating.delete({
           where: { id: existingRating.id },
         });
@@ -113,7 +156,7 @@ export async function POST(request: NextRequest): Promise<
       }
       // If rating is being updated to a different rating, update the rating
       else {
-        log.debug('Rating is being updated');
+        log.debug('[RATING] Rating is being updated');
         rating = await prisma.rating.update({
           where: { id: existingRating.id },
           data: { rating: toNumber(userRating) },
@@ -123,7 +166,7 @@ export async function POST(request: NextRequest): Promise<
     }
     // If rating doesn't exist, create it
     else {
-      log.debug('Rating does not exist, creating it');
+      log.debug('[RATING] Rating does not exist, creating it');
 
       // If rating doesn't exist, create it (toggle on)
       if (!userRating) {
@@ -159,7 +202,7 @@ export async function POST(request: NextRequest): Promise<
       { status: 200 }
     );
   } catch (error) {
-    log.error('Failed to process rating', { error });
+    log.error('[RATING] Failed to process rating', { error });
     return NextResponse.json(
       { error: 'Failed to process rating' },
       { status: 500 }

@@ -3,7 +3,9 @@ import type { NextRequest } from 'next/server';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { POST } from '@/app/api/places/rating/route';
 import { prisma } from '@/lib/db';
+import { fetchDetails } from '@/services/places/details/fetch-details/fetch-details';
 import { getUserId } from '@/services/user/get-user-id';
+import type { PlaceWithReviews } from '@/types/details';
 import type { User, Place, Rating } from '@prisma/client';
 
 // Mock dependencies
@@ -22,12 +24,29 @@ vi.mock('@/lib/db', () => ({
       update: vi.fn(),
       delete: vi.fn(),
     },
+    review: {
+      createMany: vi.fn(),
+    },
   },
 }));
 
 // Mock getUserId service
 vi.mock('@/services/user/get-user-id', () => ({
   getUserId: vi.fn(),
+}));
+
+// Mock fetchDetails service
+vi.mock('@/services/places/details/fetch-details/fetch-details', () => ({
+  fetchDetails: vi.fn(),
+}));
+
+// Mock logger
+vi.mock('@/utils/log', () => ({
+  log: {
+    error: vi.fn(),
+    debug: vi.fn(),
+    info: vi.fn(),
+  },
 }));
 
 // Mock NextRequest
@@ -59,14 +78,6 @@ vi.mock('next/server', () => {
     },
   };
 });
-
-// Mock logger
-vi.mock('@/utils/log', () => ({
-  log: {
-    error: vi.fn(),
-    debug: vi.fn(),
-  },
-}));
 
 describe('Rating API Routes', () => {
   // Fixed mock date for all tests
@@ -162,14 +173,36 @@ describe('Rating API Routes', () => {
       // Mock place found
       const mockPlace: Place = {
         id: 'place_123',
-        name: null,
-        description: null,
-        latitude: null,
-        longitude: null,
-        address: null,
+        name: 'Test Place',
+        latitude: 0,
+        longitude: 0,
+        address: '',
         merchantId: null,
         createdAt: FIXED_DATE,
         updatedAt: FIXED_DATE,
+        allowsDogs: false,
+        delivery: false,
+        editorialSummary: null,
+        generativeSummary: null,
+        goodForChildren: false,
+        dineIn: false,
+        goodForGroups: false,
+        isFree: false,
+        liveMusic: false,
+        menuForChildren: false,
+        outdoorSeating: false,
+        acceptsCashOnly: null,
+        acceptsCreditCards: null,
+        acceptsDebitCards: null,
+        priceLevel: null,
+        primaryTypeDisplayName: null,
+        servesCoffee: false,
+        servesDessert: false,
+        takeout: false,
+        restroom: false,
+        googleRating: 0,
+        openNow: false,
+        userRatingCount: 0,
       };
       vi.mocked(prisma.place.findUnique).mockResolvedValue(mockPlace);
 
@@ -210,14 +243,36 @@ describe('Rating API Routes', () => {
       // Mock place found
       const mockPlace: Place = {
         id: 'place_123',
-        name: null,
-        description: null,
-        latitude: null,
-        longitude: null,
-        address: null,
+        name: 'Test Place',
+        latitude: 0,
+        longitude: 0,
+        address: '',
         merchantId: null,
         createdAt: FIXED_DATE,
         updatedAt: FIXED_DATE,
+        allowsDogs: false,
+        delivery: false,
+        editorialSummary: null,
+        generativeSummary: null,
+        goodForChildren: false,
+        dineIn: false,
+        goodForGroups: false,
+        isFree: false,
+        liveMusic: false,
+        menuForChildren: false,
+        outdoorSeating: false,
+        acceptsCashOnly: null,
+        acceptsCreditCards: null,
+        acceptsDebitCards: null,
+        priceLevel: null,
+        primaryTypeDisplayName: null,
+        servesCoffee: false,
+        servesDessert: false,
+        takeout: false,
+        restroom: false,
+        googleRating: 0,
+        openNow: false,
+        userRatingCount: 0,
       };
       vi.mocked(prisma.place.findUnique).mockResolvedValue(mockPlace);
 
@@ -277,7 +332,7 @@ describe('Rating API Routes', () => {
       );
     });
 
-    it('should create a new place if it does not exist', async () => {
+    it('should create a new place with reviews if it does not exist', async () => {
       const mockRequest = new MockNextRequest(
         {
           placeId: 'place_123',
@@ -301,22 +356,117 @@ describe('Rating API Routes', () => {
       };
       vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser);
 
-      // Mock place not found
+      // Mock place not found initially
       vi.mocked(prisma.place.findUnique).mockResolvedValue(null);
 
-      // Mock place creation
-      const mockPlace: Place = {
+      // Mock Google Places details
+      const mockGoogleDetails: PlaceWithReviews = {
         id: 'place_123',
-        name: null,
-        description: null,
-        latitude: null,
-        longitude: null,
-        address: null,
+        name: 'Test Place',
+        displayName: 'Test Place',
+        googleRating: 4.5,
+        rating: 4.5,
+        latitude: 37.7749,
+        longitude: -122.4194,
+        location: {
+          latitude: 37.7749,
+          longitude: -122.4194,
+        },
+        paymentOptions: {
+          acceptsCreditCards: true,
+          acceptsDebitCards: true,
+          acceptsCashOnly: false,
+        },
         merchantId: null,
+        reviews: [
+          {
+            id: 'review_1',
+            relativePublishTimeDescription: '2 days ago',
+            rating: 5,
+            text: 'Great place!',
+            status: 'DEFAULT',
+          },
+          {
+            id: 'review_2',
+            relativePublishTimeDescription: '1 week ago',
+            rating: 4,
+            text: 'Good experience',
+            status: 'DEFAULT',
+          },
+        ],
+        priceLevel: 2,
+        userRatingCount: 100,
+        primaryTypeDisplayName: 'Restaurant',
+        takeout: true,
+        delivery: false,
+        dineIn: true,
+        editorialSummary: 'A great restaurant with amazing food',
+        outdoorSeating: true,
+        liveMusic: false,
+        menuForChildren: true,
+        servesDessert: true,
+        servesCoffee: true,
+        goodForChildren: true,
+        goodForGroups: true,
+        allowsDogs: false,
+        restroom: true,
+        acceptsCashOnly: false,
+        acceptsCreditCards: true,
+        acceptsDebitCards: true,
+        generativeSummary: 'This is a generative summary of the restaurant',
+        isFree: false,
+        address: '123 Test St, San Francisco, CA',
+        openNow: true,
+      };
+
+      // Mock fetchDetails to return our mock Google details
+      const mockFetchDetails = vi.mocked(fetchDetails);
+      mockFetchDetails.mockResolvedValue(mockGoogleDetails);
+
+      // Mock place creation
+      const mockTransformedPlace = {
+        id: 'place_123',
+        name: 'Test Place',
+        latitude: 37.7749,
+        longitude: -122.4194,
+        address: '123 Test St, San Francisco, CA',
+        merchantId: null,
+        allowsDogs: false,
+        delivery: false,
+        editorialSummary: 'A great restaurant with amazing food',
+        generativeSummary: 'This is a generative summary of the restaurant',
+        goodForChildren: true,
+        dineIn: true,
+        goodForGroups: true,
+        isFree: false,
+        liveMusic: false,
+        menuForChildren: true,
+        outdoorSeating: true,
+        acceptsCashOnly: false,
+        acceptsCreditCards: true,
+        acceptsDebitCards: true,
+        priceLevel: 2,
+        primaryTypeDisplayName: 'Restaurant',
+        servesCoffee: true,
+        servesDessert: true,
+        takeout: true,
+        restroom: true,
+        googleRating: 4.5,
+        openNow: true,
+        userRatingCount: 100,
+      };
+
+      // Mock place creation with timestamps
+      const mockPlaceWithTimestamps = {
+        ...mockTransformedPlace,
         createdAt: FIXED_DATE,
         updatedAt: FIXED_DATE,
       };
-      vi.mocked(prisma.place.create).mockResolvedValue(mockPlace);
+
+      vi.mocked(prisma.place.create).mockResolvedValue(mockPlaceWithTimestamps);
+
+      // Mock reviews creation
+      vi.mocked(prisma.review.createMany).mockResolvedValue({ count: 2 });
 
       // Mock rating not found
       vi.mocked(prisma.rating.findUnique).mockResolvedValue(null);
@@ -332,27 +482,23 @@ describe('Rating API Routes', () => {
       };
       vi.mocked(prisma.rating.create).mockResolvedValue(mockRating);
 
-      await POST(mockRequest);
+      const response = await POST(mockRequest);
+      console.log('Response:', response);
 
-      expect(prisma.user.findUnique).toHaveBeenCalledWith({
-        where: { id: 'user_123' },
-      });
-      expect(prisma.place.findUnique).toHaveBeenCalledWith({
-        where: { id: 'place_123' },
-      });
+      // Verify the flow
+      expect(mockFetchDetails).toHaveBeenCalledWith('place_123');
+
       expect(prisma.place.create).toHaveBeenCalledWith({
-        data: {
-          id: 'place_123',
-        },
+        data: mockTransformedPlace,
       });
-      expect(prisma.rating.findUnique).toHaveBeenCalledWith({
-        where: {
-          userId_placeId: {
-            userId: 'user_123',
-            placeId: 'place_123',
-          },
-        },
+
+      expect(prisma.review.createMany).toHaveBeenCalledWith({
+        data: mockGoogleDetails.reviews.map((review) => ({
+          ...review,
+          placeId: 'place_123',
+        })),
       });
+
       expect(prisma.rating.create).toHaveBeenCalledWith({
         data: {
           userId: 'user_123',
@@ -360,10 +506,11 @@ describe('Rating API Routes', () => {
           rating: 4,
         },
       });
+
       expect(NextResponse.json).toHaveBeenCalledWith(
         {
           message: 'Rating added',
-          place: mockPlace,
+          place: mockPlaceWithTimestamps,
           rating: mockRating,
           action: 'added',
         },
@@ -398,14 +545,36 @@ describe('Rating API Routes', () => {
       // Mock place found
       const mockPlace: Place = {
         id: 'place_123',
-        name: null,
-        description: null,
-        latitude: null,
-        longitude: null,
-        address: null,
+        name: 'Test Place',
+        latitude: 0,
+        longitude: 0,
+        address: '',
         merchantId: null,
         createdAt: FIXED_DATE,
         updatedAt: FIXED_DATE,
+        allowsDogs: false,
+        delivery: false,
+        editorialSummary: null,
+        generativeSummary: null,
+        goodForChildren: false,
+        dineIn: false,
+        goodForGroups: false,
+        isFree: false,
+        liveMusic: false,
+        menuForChildren: false,
+        outdoorSeating: false,
+        acceptsCashOnly: null,
+        acceptsCreditCards: null,
+        acceptsDebitCards: null,
+        priceLevel: null,
+        primaryTypeDisplayName: null,
+        servesCoffee: false,
+        servesDessert: false,
+        takeout: false,
+        restroom: false,
+        googleRating: 0,
+        openNow: false,
+        userRatingCount: 0,
       };
       vi.mocked(prisma.place.findUnique).mockResolvedValue(mockPlace);
 
@@ -475,14 +644,36 @@ describe('Rating API Routes', () => {
       // Mock place found
       const mockPlace: Place = {
         id: 'place_123',
-        name: null,
-        description: null,
-        latitude: null,
-        longitude: null,
-        address: null,
+        name: 'Test Place',
+        latitude: 0,
+        longitude: 0,
+        address: '',
         merchantId: null,
         createdAt: FIXED_DATE,
         updatedAt: FIXED_DATE,
+        allowsDogs: false,
+        delivery: false,
+        editorialSummary: null,
+        generativeSummary: null,
+        goodForChildren: false,
+        dineIn: false,
+        goodForGroups: false,
+        isFree: false,
+        liveMusic: false,
+        menuForChildren: false,
+        outdoorSeating: false,
+        acceptsCashOnly: null,
+        acceptsCreditCards: null,
+        acceptsDebitCards: null,
+        priceLevel: null,
+        primaryTypeDisplayName: null,
+        servesCoffee: false,
+        servesDessert: false,
+        takeout: false,
+        restroom: false,
+        googleRating: 0,
+        openNow: false,
+        userRatingCount: 0,
       };
       vi.mocked(prisma.place.findUnique).mockResolvedValue(mockPlace);
 

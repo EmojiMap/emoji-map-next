@@ -1,266 +1,276 @@
 import { NextRequest } from 'next/server';
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GET } from '@/app/api/places/details/route';
-import { inngest } from '@/inngest/client';
-import { getPlaceDetailsWithCache } from '@/services/places/details/get-place-details-with-cache/get-place-details-with-cache';
-import { getSearchParams } from '@/services/places/details/get-search-params/get-search-params';
-import type { DetailResponse } from '@/types/details';
+import { prisma } from '@/lib/db';
+import { redis } from '@/lib/redis';
+import { fetchDetails } from '@/services/places/details/fetch-details/fetch-details';
+import type { PlaceWithReviews } from '@/types/details';
+import type { Place, Review } from '@prisma/client';
 
-// Mock all the dependencies
-vi.mock(
-  '@/services/places/details/get-place-details-with-cache/get-place-details-with-cache',
-  () => ({
-    getPlaceDetailsWithCache: vi.fn(),
-  })
-);
-
-vi.mock(
-  '@/services/places/details/get-search-params/get-search-params',
-  () => ({
-    getSearchParams: vi.fn(),
-  })
-);
-
-vi.mock('@/inngest/client', () => ({
-  inngest: {
-    send: vi.fn().mockResolvedValue(undefined),
+// Mock dependencies
+vi.mock('@/lib/db', () => ({
+  prisma: {
+    place: {
+      findUnique: vi.fn(),
+      create: vi.fn(),
+    },
+    review: {
+      createMany: vi.fn(),
+    },
   },
 }));
 
-describe('Places Details API', () => {
-  // Sample data for tests
-  const mockPlaceId = 'ChIJN1t_tDeuEmsRUsoyG83frY4';
+vi.mock('@/lib/redis', () => ({
+  redis: {
+    get: vi.fn(),
+    set: vi.fn(),
+  },
+}));
 
-  const mockDetailsResponse: DetailResponse = {
-    data: {
-      name: 'Test Place',
-      reviews: [],
-      rating: 4.5,
-      priceLevel: 2,
-      userRatingCount: 100,
-      openNow: true,
-      displayName: 'Test Place Display Name',
-      primaryTypeDisplayName: 'Restaurant',
-      takeout: true,
-      delivery: true,
-      dineIn: true,
-      editorialSummary: 'A great place to eat',
-      outdoorSeating: true,
-      liveMusic: false,
-      menuForChildren: true,
-      servesDessert: true,
-      servesCoffee: true,
-      goodForChildren: true,
-      goodForGroups: true,
-      allowsDogs: false,
-      restroom: true,
-      paymentOptions: {
-        acceptsCreditCards: true,
-        acceptsDebitCards: true,
-        acceptsCashOnly: false,
+vi.mock('@/services/places/details/fetch-details/fetch-details', () => ({
+  fetchDetails: vi.fn(),
+}));
+
+describe('Details API Route', () => {
+  const mockCreatedAt = '2024-01-01T00:00:00.000Z';
+  const mockUpdatedAt = '2024-01-01T00:00:00.000Z';
+
+  const mockPlace: Place & { reviews: Review[] } = {
+    id: 'test_place_123',
+    name: 'Test Place',
+    latitude: 37.7749,
+    longitude: -122.4194,
+    googleRating: 4.5,
+    userRatingCount: 100,
+    priceLevel: 2,
+    address: '123 Test St',
+    primaryTypeDisplayName: 'Restaurant',
+    editorialSummary: 'A test place',
+    generativeSummary: 'A generated summary',
+    isFree: false,
+    openNow: true,
+    merchantId: null,
+    dineIn: true,
+    takeout: true,
+    delivery: false,
+    servesCoffee: true,
+    servesDessert: true,
+    outdoorSeating: true,
+    liveMusic: false,
+    acceptsCreditCards: true,
+    acceptsDebitCards: true,
+    acceptsCashOnly: false,
+    goodForChildren: true,
+    goodForGroups: true,
+    menuForChildren: false,
+    restroom: true,
+    allowsDogs: false,
+    // @ts-expect-error - mockCreatedAt is a string
+    createdAt: mockCreatedAt,
+    // @ts-expect-error - mockUpdatedAt is a string
+    updatedAt: mockUpdatedAt,
+    reviews: [
+      {
+        id: 'review_1',
+        placeId: 'test_place_123',
+        rating: 5,
+        text: 'Great place!',
+        relativePublishTimeDescription: '2 days ago',
+        status: 'DEFAULT',
+        // @ts-expect-error - mockCreatedAt is a string
+        createdAt: mockCreatedAt,
+        // @ts-expect-error - mockUpdatedAt is a string
+        updatedAt: mockUpdatedAt,
       },
-      generativeSummary: 'This is a generated summary of the place',
-      isFree: false,
-      location: {
-        latitude: 37.7749,
-        longitude: -122.4194,
-      },
-      formattedAddress: '123 Test St, Test City, TC 12345',
-    },
-    count: 1,
-    cacheHit: false,
+    ],
   };
 
-  // Reset mocks before each test
+  const mockPlaceTransformed = {
+    ...mockPlace,
+    location: {
+      latitude: mockPlace.latitude,
+      longitude: mockPlace.longitude,
+    },
+    displayName: mockPlace.name,
+    rating: mockPlace.googleRating,
+    paymentOptions: {
+      acceptsCreditCards: Boolean(mockPlace.acceptsCreditCards),
+      acceptsDebitCards: Boolean(mockPlace.acceptsDebitCards),
+      acceptsCashOnly: Boolean(mockPlace.acceptsCashOnly),
+    },
+  };
+
+  const mockGoogleDetails: PlaceWithReviews = {
+    id: 'test_place_123',
+    name: 'Test Place',
+    displayName: 'Test Place',
+    googleRating: 4.5,
+    rating: 4.5,
+    latitude: 37.7749,
+    longitude: -122.4194,
+    location: {
+      latitude: 37.7749,
+      longitude: -122.4194,
+    },
+    paymentOptions: {
+      acceptsCreditCards: true,
+      acceptsDebitCards: true,
+      acceptsCashOnly: false,
+    },
+    reviews: [
+      {
+        id: 'review_1',
+        relativePublishTimeDescription: '2 days ago',
+        rating: 5,
+        text: 'Great place!',
+        status: 'DEFAULT',
+      },
+    ],
+    priceLevel: 2,
+    userRatingCount: 100,
+    primaryTypeDisplayName: 'Restaurant',
+    takeout: true,
+    delivery: false,
+    dineIn: true,
+    editorialSummary: 'A test place',
+    outdoorSeating: true,
+    liveMusic: false,
+    menuForChildren: true,
+    servesDessert: true,
+    servesCoffee: true,
+    goodForChildren: true,
+    goodForGroups: true,
+    allowsDogs: false,
+    restroom: true,
+    acceptsCashOnly: false,
+    acceptsCreditCards: true,
+    acceptsDebitCards: true,
+    generativeSummary: 'A generated summary',
+    isFree: false,
+    address: '123 Test St',
+    openNow: true,
+    merchantId: null,
+  };
+
   beforeEach(() => {
-    vi.resetAllMocks();
-
-    // Default mock implementations
-    (getSearchParams as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
-      id: mockPlaceId,
-      bypassCache: false,
-    });
-
-    (
-      getPlaceDetailsWithCache as unknown as ReturnType<typeof vi.fn>
-    ).mockResolvedValue(mockDetailsResponse);
-  });
-
-  afterEach(() => {
     vi.clearAllMocks();
   });
 
-  it('should return place details and trigger Inngest event for valid request', async () => {
-    // Create a mock request
+  it('should return cached data if available', async () => {
+    // Arrange
     const request = new NextRequest(
-      `https://example.com/api/places/details?id=${mockPlaceId}`
+      'http://localhost:3000/api/places/details?id=test_place_123'
     );
+    vi.mocked(redis.get).mockResolvedValueOnce(mockPlace);
 
-    // Execute the handler
+    // Act
     const response = await GET(request);
     const data = await response.json();
 
-    // Verify the response
+    // Assert
     expect(response.status).toBe(200);
-    expect(data).toEqual(mockDetailsResponse);
-
-    // Verify the correct functions were called
-    expect(getSearchParams).toHaveBeenCalledWith(request);
-    expect(getPlaceDetailsWithCache).toHaveBeenCalledWith({
-      id: mockPlaceId,
-      bypassCache: false,
-    });
-
-    // Verify Inngest event was sent
-    expect(inngest.send).toHaveBeenCalledWith({
-      name: 'places/check-if-place-exists-and-create-if-not',
-      data: {
-        id: mockPlaceId,
-        details: mockDetailsResponse,
-      },
-    });
-  });
-
-  it('should return cached data and still trigger Inngest event when available', async () => {
-    // Create a cached response with cacheHit set to true
-    const cachedResponse = {
-      ...mockDetailsResponse,
+    expect(data).toEqual({
+      data: mockPlaceTransformed,
       cacheHit: true,
-    };
+      count: 1,
+    });
+  });
 
-    // Mock getPlaceDetailsWithCache to return the cached data
-    (
-      getPlaceDetailsWithCache as unknown as ReturnType<typeof vi.fn>
-    ).mockResolvedValue(cachedResponse);
-
+  it('should return data from database if not cached', async () => {
+    // Arrange
     const request = new NextRequest(
-      `https://example.com/api/places/details?id=${mockPlaceId}`
+      'http://localhost:3000/api/places/details?id=test_place_123'
     );
+    vi.mocked(redis.get).mockResolvedValueOnce(null);
+    vi.mocked(prisma.place.findUnique).mockResolvedValueOnce(mockPlace);
+
+    // Act
     const response = await GET(request);
     const data = await response.json();
 
-    // Verify the response
+    // Assert
     expect(response.status).toBe(200);
-    expect(data).toEqual(cachedResponse);
-    expect(data.cacheHit).toBe(true);
-
-    // Verify getPlaceDetailsWithCache was called with the correct parameters
-    expect(getPlaceDetailsWithCache).toHaveBeenCalledWith({
-      id: mockPlaceId,
-      bypassCache: false,
-    });
-
-    // Verify Inngest event was still sent even with cached data
-    expect(inngest.send).toHaveBeenCalledWith({
-      name: 'places/check-if-place-exists-and-create-if-not',
-      data: {
-        id: mockPlaceId,
-        details: cachedResponse,
-      },
+    expect(data).toEqual({
+      data: mockPlaceTransformed,
+      cacheHit: false,
+      count: 1,
     });
   });
 
-  it('should fetch from Google when cache is bypassed', async () => {
-    // Mock bypassCache parameter
-    (getSearchParams as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
-      id: mockPlaceId,
-      bypassCache: true,
-    });
-
+  it('should fetch from Google Places API if not in database', async () => {
+    // Arrange
     const request = new NextRequest(
-      `https://example.com/api/places/details?id=${mockPlaceId}&bypassCache=true`
+      'http://localhost:3000/api/places/details?id=test_place_123'
     );
-    await GET(request);
+    vi.mocked(redis.get).mockResolvedValueOnce(null);
+    vi.mocked(prisma.place.findUnique)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(mockPlace);
+    vi.mocked(fetchDetails).mockResolvedValueOnce(mockGoogleDetails);
+    vi.mocked(prisma.place.create).mockResolvedValueOnce(mockPlace);
+    vi.mocked(prisma.review.createMany).mockResolvedValueOnce({ count: 1 });
 
-    // Verify getPlaceDetailsWithCache was called with bypassCache=true
-    expect(getPlaceDetailsWithCache).toHaveBeenCalledWith({
-      id: mockPlaceId,
-      bypassCache: true,
-    });
-
-    // Verify Inngest event was sent
-    expect(inngest.send).toHaveBeenCalledWith({
-      name: 'places/check-if-place-exists-and-create-if-not',
-      data: {
-        id: mockPlaceId,
-        details: mockDetailsResponse,
-      },
-    });
-  });
-
-  it('should handle errors gracefully and not send Inngest event', async () => {
-    // Mock getPlaceDetailsWithCache to throw an error
-    (
-      getPlaceDetailsWithCache as unknown as ReturnType<typeof vi.fn>
-    ).mockRejectedValue(new Error('Failed to fetch place details'));
-
-    const request = new NextRequest(
-      `https://example.com/api/places/details?id=${mockPlaceId}`
-    );
+    // Act
     const response = await GET(request);
     const data = await response.json();
 
-    // Verify the response is an error
-    expect(response.status).toBe(500);
-    expect(data).toHaveProperty('error');
-    expect(data.error).toBe('Failed to fetch place details');
-    expect(data).toHaveProperty('message');
-
-    // Verify Inngest event was not sent
-    expect(inngest.send).not.toHaveBeenCalled();
+    // Assert
+    expect(response.status).toBe(200);
+    expect(data).toEqual({
+      data: mockPlaceTransformed,
+      cacheHit: false,
+      count: 1,
+    });
   });
 
-  it('should handle missing ID parameter', async () => {
-    // Mock missing ID
-    (getSearchParams as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
-      id: undefined,
-      bypassCache: false,
-    });
+  it('should bypass cache when bypassCache=true', async () => {
+    // Arrange
+    const request = new NextRequest(
+      'http://localhost:3000/api/places/details?id=test_place_123&bypassCache=true'
+    );
+    vi.mocked(prisma.place.findUnique).mockResolvedValueOnce(mockPlace);
 
-    // Mock getPlaceDetailsWithCache to throw an error when ID is missing
-    (
-      getPlaceDetailsWithCache as unknown as ReturnType<typeof vi.fn>
-    ).mockRejectedValue(new Error('ID is required'));
-
-    const request = new NextRequest(`https://example.com/api/places/details`);
+    // Act
     const response = await GET(request);
     const data = await response.json();
 
-    // Verify the response is an error
-    expect(response.status).toBe(500);
-    expect(data).toHaveProperty('error');
-    expect(data.message).toContain('ID is required');
-
-    // Verify Inngest event was not sent
-    expect(inngest.send).not.toHaveBeenCalled();
+    // Assert
+    expect(response.status).toBe(200);
+    expect(data).toEqual({
+      data: mockPlaceTransformed,
+      cacheHit: false,
+      count: 1,
+    });
+    expect(redis.get).not.toHaveBeenCalled();
   });
 
-  it('should pass additional parameters correctly', async () => {
-    // Mock request with additional parameters
-    (getSearchParams as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
-      id: mockPlaceId,
-      bypassCache: true,
-      // Add any other parameters that might be supported in the future
-    });
-
+  it('should return 500 if place not found after creation', async () => {
+    // Arrange
     const request = new NextRequest(
-      `https://example.com/api/places/details?id=${mockPlaceId}&bypassCache=true`
+      'http://localhost:3000/api/places/details?id=test_place_123'
     );
-    await GET(request);
+    vi.mocked(redis.get).mockResolvedValueOnce(null);
+    vi.mocked(prisma.place.findUnique).mockResolvedValueOnce(null);
+    vi.mocked(fetchDetails).mockRejectedValueOnce(new Error('PLACE_NOT_FOUND'));
 
-    // Verify parameters were passed correctly
-    expect(getPlaceDetailsWithCache).toHaveBeenCalledWith({
-      id: mockPlaceId,
-      bypassCache: true,
-    });
+    // Act
+    const response = await GET(request);
 
-    // Verify Inngest event was sent
-    expect(inngest.send).toHaveBeenCalledWith({
-      name: 'places/check-if-place-exists-and-create-if-not',
-      data: {
-        id: mockPlaceId,
-        details: mockDetailsResponse,
-      },
-    });
+    // Assert
+    expect(response.status).toBe(500);
+  });
+
+  it('should return 500 if an error occurs', async () => {
+    // Arrange
+    const request = new NextRequest(
+      'http://localhost:3000/api/places/details?id=test_place_123'
+    );
+    vi.mocked(redis.get).mockRejectedValueOnce(new Error('Redis error'));
+
+    // Act
+    const response = await GET(request);
+
+    // Assert
+    expect(response.status).toBe(500);
   });
 });

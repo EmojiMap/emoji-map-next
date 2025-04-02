@@ -26,20 +26,43 @@ model User {
 }
 
 model Place {
-  id          String     @id @default(cuid())
-  name        String?
-  description String?
-  latitude    Float?
-  longitude   Float?
-  address     String?
-  merchantId  String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @default(now()) @updatedAt
-  favorites   Favorite[]
-  photos      Photo[]
-  ratings     Rating[]
-  reviews     Review[]
-  merchant    Merchant?  @relation(fields: [merchantId], references: [id])
+  id                     String   @id @default(cuid())
+  name                   String
+  latitude               Float
+  longitude              Float
+  address                String
+  merchantId             String?
+  allowsDogs             Boolean
+  delivery               Boolean
+  editorialSummary       String?
+  generativeSummary      String?
+  goodForChildren        Boolean
+  dineIn                 Boolean
+  goodForGroups          Boolean
+  isFree                 Boolean
+  liveMusic              Boolean
+  menuForChildren        Boolean
+  outdoorSeating         Boolean
+  acceptsCashOnly        Boolean?
+  acceptsCreditCards     Boolean?
+  acceptsDebitCards      Boolean?
+  priceLevel             Int? // 1-4 inclusive
+  primaryTypeDisplayName String?
+  googleRating           Float
+  servesCoffee           Boolean
+  servesDessert          Boolean
+  takeout                Boolean
+  restroom               Boolean
+  openNow                Boolean?
+  userRatingCount        Int
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @default(now()) @updatedAt
+
+  favorites Favorite[]
+  photos    Photo[]
+  ratings   Rating[]
+  reviews   Review[]
+  merchant  Merchant?  @relation(fields: [merchantId], references: [id])
 
   @@index([name])
   @@index([merchantId])
@@ -81,16 +104,24 @@ model Category {
   keywords String[]
 }
 
+enum ReviewStatus {
+  DEFAULT
+  HIDDEN
+  FEATURED
+}
+
 model Review {
-  id                             String   @id @default(cuid())
+  id                             String       @id @default(cuid())
   placeId                        String
-  name                           String
   relativePublishTimeDescription String
   rating                         Int
   text                           String
-  createdAt                      DateTime @default(now())
-  updatedAt                      DateTime @default(now()) @updatedAt
-  place                          Place    @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  status                         ReviewStatus @default(DEFAULT)
+  createdAt                      DateTime     @default(now())
+  updatedAt                      DateTime     @default(now()) @updatedAt
+  place                          Place        @relation(fields: [placeId], references: [id], onDelete: Cascade)
+
+  @@index([placeId])
 }
 
 model Photo {

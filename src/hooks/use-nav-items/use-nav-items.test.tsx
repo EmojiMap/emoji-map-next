@@ -2,7 +2,7 @@ import { useUser } from '@clerk/nextjs';
 import { renderHook } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { NavItem } from '@/types/nav-items';
-import { useNavItems } from './useNavItems';
+import { useNavItems } from './use-nav-items';
 
 // Mock the Clerk hook
 vi.mock('@clerk/nextjs', () => ({
