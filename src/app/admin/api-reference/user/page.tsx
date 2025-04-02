@@ -329,7 +329,7 @@ function FavoritesCard({ favorites }: FavoritesCardProps) {
     <Card>
       <CardHeader>
         <div className='flex items-center justify-between'>
-          <div>
+          <div className='space-y-1.5'>
             <CardTitle>Favorites</CardTitle>
             <CardDescription>User&apos;s favorite locations</CardDescription>
           </div>
@@ -406,7 +406,7 @@ function RatingsCard({ ratings }: RatingsCardProps) {
     <Card>
       <CardHeader>
         <div className='flex items-center justify-between'>
-          <div>
+          <div className='space-y-1.5'>
             <CardTitle>Ratings</CardTitle>
             <CardDescription>User&apos;s location ratings</CardDescription>
           </div>
