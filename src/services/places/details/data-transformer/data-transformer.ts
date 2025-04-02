@@ -1,5 +1,5 @@
-import { v4 } from 'uuid';
-import type { Detail } from '@/types/details';
+import { ReviewStatus } from '@prisma/client';
+import type { PlaceWithReviews } from '@/types/details';
 import {
   mapPriceLevel,
   type ValidatedGoogleDetailsResponse,
@@ -7,49 +7,53 @@ import {
 
 export function transformDetailsData(
   data: ValidatedGoogleDetailsResponse
-): Detail {
-  // Map the price level to the Detail format
-  const mappedPriceLevel = mapPriceLevel(data.priceLevel);
-
-  // Check if the place is free
-  const isFree = data.priceLevel === 'PRICE_LEVEL_FREE';
+): PlaceWithReviews {
+  // Filter out reviews with empty text
+  const transformedReviews = data.reviews
+    .map((review) => ({
+      // i.e.
+      // from: "places/ChIJ-aP3IHa1RIYRUlcGMckBLvw/reviews/ChZDSUhNMG9nS0VJQ0FnSURYNXRyMEtnEAE"
+      // to: "ChZDSUhNMG9nS0VJQ0FnSURYNXRyMEtnEAE"
+      id: review.name.split('/')[3],
+      status: ReviewStatus.DEFAULT,
+      rating: review.rating,
+      relativePublishTimeDescription: review.relativePublishTimeDescription,
+      text: review.text?.text ?? review.originalText?.text ?? '',
+    }))
+    .filter((review) => review.text !== '');
 
   // Transform to Detail type with default values for required fields
-  const normalizedData: Detail = {
-    name: data.name || '',
-    reviews: data.reviews.map((review) => ({
-      ...review,
-      status: 'DEFAULT',
-      id: v4(),
-    })),
-    rating: data.rating || 0,
-    priceLevel: mappedPriceLevel,
-    userRatingCount: data.userRatingCount || 0,
-    openNow: data.currentOpeningHours?.openNow || undefined,
-    displayName: data.displayName?.text || '',
-    primaryTypeDisplayName: data.primaryTypeDisplayName?.text || '',
-    takeout: data.takeout || false,
+  const normalizedData: PlaceWithReviews = {
+    id: data.id,
+    acceptsCashOnly: data.paymentOptions?.acceptsCashOnly || false,
+    acceptsCreditCards: data.paymentOptions?.acceptsCreditCards || false,
+    acceptsDebitCards: data.paymentOptions?.acceptsDebitCards || false,
+    address: data.formattedAddress || '',
+    allowsDogs: data.allowsDogs || false,
     delivery: data.delivery || false,
     dineIn: data.dineIn || false,
     editorialSummary: data.editorialSummary?.text || '',
-    outdoorSeating: data.outdoorSeating || false,
-    liveMusic: data.liveMusic || false,
-    menuForChildren: data.menuForChildren || false,
-    servesDessert: data.servesDessert || false,
-    servesCoffee: data.servesCoffee || false,
+    generativeSummary: data.generativeSummary?.overview?.text || '',
     goodForChildren: data.goodForChildren || false,
     goodForGroups: data.goodForGroups || false,
-    allowsDogs: data.allowsDogs || false,
+    isFree: data.priceLevel === 'PRICE_LEVEL_FREE',
+    latitude: data.location.latitude,
+    liveMusic: data.liveMusic || false,
+    longitude: data.location.longitude,
+    menuForChildren: data.menuForChildren || false,
+    merchantId: null,
+    name: data.displayName?.text || '',
+    openNow: data.currentOpeningHours?.openNow || null,
+    outdoorSeating: data.outdoorSeating || false,
+    priceLevel: mapPriceLevel(data.priceLevel),
+    primaryTypeDisplayName: data.primaryTypeDisplayName?.text || '',
+    googleRating: data.rating || 0,
     restroom: data.restroom || false,
-    paymentOptions: data.paymentOptions || {
-      acceptsCreditCards: false,
-      acceptsDebitCards: false,
-      acceptsCashOnly: false,
-    },
-    generativeSummary: data.generativeSummary?.overview?.text || '',
-    isFree,
-    location: data.location,
-    formattedAddress: data.formattedAddress || '',
+    reviews: transformedReviews,
+    servesCoffee: data.servesCoffee || false,
+    servesDessert: data.servesDessert || false,
+    takeout: data.takeout || false,
+    userRatingCount: data.userRatingCount || 0,
   };
 
   return normalizedData;

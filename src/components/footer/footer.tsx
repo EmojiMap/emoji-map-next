@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { navItems } from '@/constants/routes';
-import { useNavItems } from '@/hooks/useNavItems/useNavItems';
+import { useNavItems } from '@/hooks/use-nav-items/use-nav-items';
 import { cn } from '@/lib/utils';
 import { isNavItemActive } from '@/utils/nav/is-nav-item-active';
 

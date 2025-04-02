@@ -460,7 +460,7 @@ export default function MerchantDashboard() {
                                 {/* Place Info */}
                                 <div className='flex-grow space-y-2'>
                                   <h3 className='text-xl font-bold'>
-                                    {placeDetails.data.displayName}
+                                    {placeDetails.data.name}
                                   </h3>
                                   <div className='flex items-center gap-2 text-sm text-muted-foreground'>
                                     <span>
@@ -478,7 +478,7 @@ export default function MerchantDashboard() {
                                     )}
                                   </div>
                                   {/* Rating Stars */}
-                                  {placeDetails.data.rating && (
+                                  {placeDetails.data.googleRating && (
                                     <div className='flex items-center gap-2'>
                                       <div className='flex'>
                                         {[1, 2, 3, 4, 5].map((star) => (
@@ -487,7 +487,8 @@ export default function MerchantDashboard() {
                                             className={`w-3 h-3 ${
                                               star <=
                                               Math.round(
-                                                placeDetails.data.rating ?? 0
+                                                placeDetails.data
+                                                  .googleRating ?? 0
                                               )
                                                 ? 'fill-yellow-400 text-yellow-400'
                                                 : 'fill-gray-200 text-gray-200'
@@ -733,11 +734,10 @@ export default function MerchantDashboard() {
                                           </div>
                                         </div>
                                         <p className='text-sm line-clamp-3'>
-                                          {typeof review.text === 'object' &&
-                                          review.text?.text
-                                            ? review.text.text
-                                            : typeof review.text === 'string'
-                                            ? review.text
+                                          {review.text
+                                            ? typeof review.text === 'string'
+                                              ? review.text
+                                              : 'No review text'
                                             : 'No review text'}
                                         </p>
                                       </div>

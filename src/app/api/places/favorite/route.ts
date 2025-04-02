@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/db';
 import { fetchDetails } from '@/services/places/details/fetch-details/fetch-details';
-import { transformGoogleDetailsToDbPlace } from '@/services/places/details/transformers/google-details-to-db-place';
 import { getUserId } from '@/services/user/get-user-id';
 import type { ErrorResponse } from '@/types/error-response';
 import { log } from '@/utils/log';
@@ -67,22 +66,49 @@ export async function POST(request: NextRequest): Promise<
     if (!place) {
       log.debug('[FAVORITE] Place not found, creating it');
 
-      const details = await fetchDetails(placeId);
+      const placeWithReviews = await fetchDetails(placeId);
 
       log.info(`[FAVORITE] fetched details from google`);
 
-      const { place: dbPlace, reviews: dbReviews } =
-        transformGoogleDetailsToDbPlace(details);
-
       place = await prisma.place.create({
-        data: dbPlace,
+        data: {
+          id: placeWithReviews.id,
+          name: placeWithReviews.name,
+          latitude: placeWithReviews.latitude,
+          longitude: placeWithReviews.longitude,
+          address: placeWithReviews.address,
+          merchantId: null,
+          allowsDogs: placeWithReviews.allowsDogs,
+          delivery: placeWithReviews.delivery,
+          editorialSummary: placeWithReviews.editorialSummary,
+          generativeSummary: placeWithReviews.generativeSummary,
+          goodForChildren: placeWithReviews.goodForChildren,
+          dineIn: placeWithReviews.dineIn,
+          goodForGroups: placeWithReviews.goodForGroups,
+          isFree: placeWithReviews.isFree,
+          liveMusic: placeWithReviews.liveMusic,
+          menuForChildren: placeWithReviews.menuForChildren,
+          outdoorSeating: placeWithReviews.outdoorSeating,
+          acceptsCashOnly: placeWithReviews.acceptsCashOnly,
+          acceptsCreditCards: placeWithReviews.acceptsCreditCards,
+          acceptsDebitCards: placeWithReviews.acceptsDebitCards,
+          priceLevel: placeWithReviews.priceLevel,
+          primaryTypeDisplayName: placeWithReviews.primaryTypeDisplayName,
+          googleRating: placeWithReviews.googleRating,
+          servesCoffee: placeWithReviews.servesCoffee,
+          servesDessert: placeWithReviews.servesDessert,
+          takeout: placeWithReviews.takeout,
+          restroom: placeWithReviews.restroom,
+          openNow: placeWithReviews.openNow,
+          userRatingCount: placeWithReviews.userRatingCount,
+        },
       });
 
-      if (dbReviews.length > 0) {
+      if (placeWithReviews.reviews.length > 0) {
         await prisma.review.createMany({
-          data: dbReviews.map((review) => ({
+          data: placeWithReviews.reviews.map((review) => ({
             ...review,
-            placeId: dbPlace.id,
+            placeId: placeWithReviews.id,
           })),
         });
       }

@@ -47,6 +47,7 @@ describe('details-validator', () => {
   describe('googleDetailsResponseSchema', () => {
     it('should validate a valid response', () => {
       const validResponse = {
+        id: 'test_place_123',
         name: 'Test Place',
         priceLevel: 'PRICE_LEVEL_MODERATE',
         rating: 4.5,
@@ -57,6 +58,7 @@ describe('details-validator', () => {
       const result = googleDetailsResponseSchema.safeParse(validResponse);
       expect(result.success).toBe(true);
       if (result.success) {
+        expect(result.data.id).toBe('test_place_123');
         expect(result.data.name).toBe('Test Place');
         expect(result.data.priceLevel).toBe('PRICE_LEVEL_MODERATE');
         expect(result.data.rating).toBe(4.5);
@@ -70,6 +72,7 @@ describe('details-validator', () => {
 
     it('should apply default values for optional fields', () => {
       const minimalResponse = {
+        id: 'minimal_place_123',
         name: 'Test Place',
         rating: 4.0,
         userRatingCount: 50,
@@ -79,6 +82,7 @@ describe('details-validator', () => {
       const result = googleDetailsResponseSchema.safeParse(minimalResponse);
       expect(result.success).toBe(true);
       if (result.success) {
+        expect(result.data.id).toBe('minimal_place_123');
         expect(result.data.name).toBe('Test Place');
         expect(result.data.priceLevel).toBe('PRICE_LEVEL_UNSPECIFIED');
         expect(result.data.reviews).toEqual([]);
@@ -87,6 +91,7 @@ describe('details-validator', () => {
 
     it('should accept responses without a name', () => {
       const responseWithoutName = {
+        id: 'no_name_place_123',
         priceLevel: 'PRICE_LEVEL_MODERATE',
         rating: 4.5,
         userRatingCount: 100,
@@ -99,6 +104,7 @@ describe('details-validator', () => {
 
     it('should accept responses without a rating', () => {
       const responseWithoutRating = {
+        id: 'no_rating_place_123',
         name: 'Test Place',
         priceLevel: 'PRICE_LEVEL_MODERATE',
         userRatingCount: 100,
@@ -113,6 +119,7 @@ describe('details-validator', () => {
 
     it('should accept responses without a userRatingCount', () => {
       const responseWithoutUserRatingCount = {
+        id: 'no_rating_count_place_123',
         name: 'Test Place',
         priceLevel: 'PRICE_LEVEL_MODERATE',
         rating: 4.5,
@@ -127,6 +134,7 @@ describe('details-validator', () => {
 
     it('should validate a response with reviews', () => {
       const responseWithReviews = {
+        id: 'reviews_place_123',
         name: 'Test Place',
         rating: 4.5,
         userRatingCount: 100,
@@ -230,6 +238,7 @@ describe('details-validator', () => {
 
     it('should validate a response with payment options', () => {
       const responseWithPaymentOptions = {
+        id: 'payment_options_place_123',
         name: 'Test Place',
         rating: 4.5,
         userRatingCount: 100,
@@ -254,6 +263,7 @@ describe('details-validator', () => {
 
     it('should validate a response with PRICE_LEVEL_FREE', () => {
       const responseWithFreePrice = {
+        id: 'free_place_123',
         name: 'Free Museum',
         rating: 4.8,
         userRatingCount: 200,
@@ -272,6 +282,7 @@ describe('details-validator', () => {
 
     it('should reject invalid price level values', () => {
       const invalidPriceLevel = {
+        id: 'invalid_price_place_123',
         name: 'Test Place',
         rating: 4.5,
         userRatingCount: 100,
@@ -296,6 +307,7 @@ describe('details-validator', () => {
 
       priceLevels.forEach((priceLevel) => {
         const response = {
+          id: `price_level_${priceLevel}`,
           name: `${priceLevel} Place`,
           rating: 4.0,
           userRatingCount: 50,
@@ -313,6 +325,7 @@ describe('details-validator', () => {
 
     it('should filter out reviews without text.text or originalText.text', () => {
       const responseWithMixedReviews = {
+        id: 'mixed_reviews_place_123',
         name: 'Test Place',
         rating: 4.5,
         userRatingCount: 100,
@@ -419,6 +432,22 @@ describe('details-validator', () => {
         expect(result.data.reviews[0].name).toBe('Valid Review');
         expect(result.data.reviews[0].text?.text).toBe('Great place!');
         expect(result.data.reviews[0].originalText?.text).toBe('Great place!');
+      }
+    });
+
+    it('should reject responses without an id', () => {
+      const responseWithoutId = {
+        name: 'Test Place',
+        rating: 4.5,
+        userRatingCount: 100,
+        ...defaultLocation,
+      };
+
+      const result = googleDetailsResponseSchema.safeParse(responseWithoutId);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0].path[0]).toBe('id');
+        expect(result.error.issues[0].message).toBe('Required');
       }
     });
   });

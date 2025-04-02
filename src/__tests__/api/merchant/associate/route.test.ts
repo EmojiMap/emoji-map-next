@@ -2,21 +2,13 @@ import { NextRequest } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { POST } from '@/app/api/merchant/associate/route';
-import { transformGoogleDetailsToDbPlace } from '@/services/places/details/transformers/google-details-to-db-place';
-import type { Detail } from '@/types/details';
+import type { PlaceWithReviews } from '@/types/details';
 import type { Place, Review } from '@prisma/client';
 
 // Mock dependencies
 vi.mock('@clerk/nextjs/server', () => ({
   auth: vi.fn(),
 }));
-
-vi.mock(
-  '@/services/places/details/transformers/google-details-to-db-place',
-  () => ({
-    transformGoogleDetailsToDbPlace: vi.fn(),
-  })
-);
 
 vi.mock('@/lib/db', () => ({
   prisma: {
@@ -60,42 +52,28 @@ const mockUser = {
   username: 'testuser',
 };
 
-const mockGoogleDetails: Detail = {
+const mockGoogleDetails: PlaceWithReviews = {
+  id: 'place-1',
   name: 'Test Place',
-  rating: 4.5,
+  googleRating: 4.5,
   reviews: [
     {
       id: 'review_1',
       relativePublishTimeDescription: '2 days ago',
       rating: 5,
-      text: {
-        text: 'Great place!',
-        languageCode: 'en',
-      },
-      originalText: {
-        text: 'Great place!',
-        languageCode: 'en',
-      },
+      text: 'Great place!',
       status: 'DEFAULT',
     },
     {
       id: 'review_2',
       relativePublishTimeDescription: '1 week ago',
       rating: 4,
-      text: {
-        text: 'Good experience',
-        languageCode: 'en',
-      },
-      originalText: {
-        text: 'Good experience',
-        languageCode: 'en',
-      },
+      text: 'Good experience',
       status: 'DEFAULT',
     },
   ],
   priceLevel: 2,
   userRatingCount: 100,
-  displayName: 'Test Place Display Name',
   primaryTypeDisplayName: 'Restaurant',
   takeout: true,
   delivery: false,
@@ -110,18 +88,16 @@ const mockGoogleDetails: Detail = {
   goodForGroups: true,
   allowsDogs: false,
   restroom: true,
-  paymentOptions: {
-    acceptsCreditCards: true,
-    acceptsDebitCards: true,
-    acceptsCashOnly: false,
-  },
+  acceptsCashOnly: false,
+  acceptsCreditCards: true,
+  acceptsDebitCards: true,
   generativeSummary: 'This is a generative summary of the restaurant',
   isFree: false,
-  location: {
-    latitude: 37.7749,
-    longitude: -122.4194,
-  },
-  formattedAddress: '123 Test St, San Francisco, CA',
+  latitude: 37.7749,
+  longitude: -122.4194,
+  address: '123 Test St',
+  openNow: true,
+  merchantId: null,
 };
 
 const mockPlace: Place = {
@@ -136,7 +112,6 @@ const mockPlace: Place = {
   allowsDogs: false,
   delivery: false,
   editorialSummary: 'A great restaurant with amazing food',
-  formattedAddress: '123 Test St, San Francisco, CA',
   generativeSummary: 'This is a generative summary of the restaurant',
   goodForChildren: true,
   dineIn: true,
@@ -150,11 +125,12 @@ const mockPlace: Place = {
   acceptsDebitCards: true,
   priceLevel: 2,
   primaryTypeDisplayName: 'Restaurant',
-  rating: 4.5,
+  googleRating: 4.5,
   servesCoffee: true,
   servesDessert: true,
   takeout: true,
   restroom: true,
+  openNow: true,
   userRatingCount: 100,
 };
 
@@ -250,28 +226,50 @@ describe('Merchant Associate Route', () => {
       json: () => Promise.resolve({ data: mockGoogleDetails }),
     });
 
-    // Mock transformGoogleDetailsToDbPlace
-    vi.mocked(transformGoogleDetailsToDbPlace).mockReturnValue({
-      place: mockPlace,
-      reviews: mockTransformedReviews,
-    });
-
     const request = createNextRequest({ placeId: 'place-1' });
 
     const response = await POST(request);
     const data = await response.json();
 
     expect(global.fetch).toHaveBeenCalled();
-    expect(transformGoogleDetailsToDbPlace).toHaveBeenCalledWith(
-      mockGoogleDetails
-    );
     expect(mockTx.place.upsert).toHaveBeenCalledWith({
       where: { id: 'place-1' },
       create: {
-        ...mockPlace,
+        id: mockGoogleDetails.id,
+        name: mockGoogleDetails.name,
+        latitude: mockGoogleDetails.latitude,
+        longitude: mockGoogleDetails.longitude,
+        address: mockGoogleDetails.address,
+        merchantId: null,
+        allowsDogs: mockGoogleDetails.allowsDogs,
+        delivery: mockGoogleDetails.delivery,
+        editorialSummary: mockGoogleDetails.editorialSummary,
+        generativeSummary: mockGoogleDetails.generativeSummary,
+        goodForChildren: mockGoogleDetails.goodForChildren,
+        dineIn: mockGoogleDetails.dineIn,
+        goodForGroups: mockGoogleDetails.goodForGroups,
+        isFree: mockGoogleDetails.isFree,
+        liveMusic: mockGoogleDetails.liveMusic,
+        menuForChildren: mockGoogleDetails.menuForChildren,
+        outdoorSeating: mockGoogleDetails.outdoorSeating,
+        acceptsCashOnly: mockGoogleDetails.acceptsCashOnly,
+        acceptsCreditCards: mockGoogleDetails.acceptsCreditCards,
+        acceptsDebitCards: mockGoogleDetails.acceptsDebitCards,
+        priceLevel: mockGoogleDetails.priceLevel,
+        primaryTypeDisplayName: mockGoogleDetails.primaryTypeDisplayName,
+        googleRating: mockGoogleDetails.googleRating,
+        servesCoffee: mockGoogleDetails.servesCoffee,
+        servesDessert: mockGoogleDetails.servesDessert,
+        takeout: mockGoogleDetails.takeout,
+        restroom: mockGoogleDetails.restroom,
+        openNow: mockGoogleDetails.openNow,
+        userRatingCount: mockGoogleDetails.userRatingCount,
         reviews: {
           createMany: {
-            data: mockTransformedReviews,
+            data: mockGoogleDetails.reviews.map((review) => ({
+              ...review,
+              placeId: mockGoogleDetails.id,
+            })),
           },
         },
       },

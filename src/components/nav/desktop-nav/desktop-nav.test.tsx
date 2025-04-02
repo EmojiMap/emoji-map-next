@@ -1,7 +1,7 @@
 import * as navigation from 'next/navigation';
 import { render, screen } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import * as navHooks from '@/hooks/useNavItems/useNavItems';
+import * as navHooks from '@/hooks/use-nav-items/use-nav-items';
 import type { NavItem } from '@/types/nav-items';
 import { DesktopNav } from './desktop-nav';
 
@@ -11,7 +11,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 // Mock the useNavItems hook
-vi.mock('@/hooks/useNavItems/useNavItems', () => ({
+vi.mock('@/hooks/use-nav-items/use-nav-items', () => ({
   useNavItems: vi.fn(),
 }));
 

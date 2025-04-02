@@ -1,15 +1,13 @@
 import { EventSchemas, Inngest } from 'inngest';
-import type { Detail } from '@/types/details';
 
-type CreatePlaceWithReviews = {
+type HelloWorld = {
   data: {
     id: string;
-    details: Detail;
   };
 };
 
 type Events = {
-  'places/create-with-reviews': CreatePlaceWithReviews;
+  'hello/world': HelloWorld;
 };
 
 export const inngest = new Inngest({

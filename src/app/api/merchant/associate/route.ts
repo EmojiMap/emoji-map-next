@@ -4,7 +4,6 @@ import { auth } from '@clerk/nextjs/server';
 import { z } from 'zod';
 import { env } from '@/env';
 import { prisma } from '@/lib/db';
-import { transformGoogleDetailsToDbPlace } from '@/services/places/details/transformers/google-details-to-db-place';
 import type { DetailResponse } from '@/types/details';
 import type { ErrorResponse } from '@/types/error-response';
 
@@ -97,16 +96,45 @@ export async function POST(request: NextRequest) {
 
       if (!place) {
         const placeDetails = await fetchPlaceDetails(placeId);
-        const { place: dbPlace, reviews: dbReviews } =
-          transformGoogleDetailsToDbPlace(placeDetails);
 
         place = await tx.place.upsert({
           where: { id: placeId },
           create: {
-            ...dbPlace,
+            id: placeDetails.id,
+            name: placeDetails.name,
+            latitude: placeDetails.latitude,
+            longitude: placeDetails.longitude,
+            address: placeDetails.address,
+            merchantId: null,
+            allowsDogs: placeDetails.allowsDogs,
+            delivery: placeDetails.delivery,
+            editorialSummary: placeDetails.editorialSummary,
+            generativeSummary: placeDetails.generativeSummary,
+            goodForChildren: placeDetails.goodForChildren,
+            dineIn: placeDetails.dineIn,
+            goodForGroups: placeDetails.goodForGroups,
+            isFree: placeDetails.isFree,
+            liveMusic: placeDetails.liveMusic,
+            menuForChildren: placeDetails.menuForChildren,
+            outdoorSeating: placeDetails.outdoorSeating,
+            acceptsCashOnly: placeDetails.acceptsCashOnly,
+            acceptsCreditCards: placeDetails.acceptsCreditCards,
+            acceptsDebitCards: placeDetails.acceptsDebitCards,
+            priceLevel: placeDetails.priceLevel,
+            primaryTypeDisplayName: placeDetails.primaryTypeDisplayName,
+            googleRating: placeDetails.googleRating,
+            servesCoffee: placeDetails.servesCoffee,
+            servesDessert: placeDetails.servesDessert,
+            takeout: placeDetails.takeout,
+            restroom: placeDetails.restroom,
+            openNow: placeDetails.openNow,
+            userRatingCount: placeDetails.userRatingCount,
             reviews: {
               createMany: {
-                data: dbReviews,
+                data: placeDetails.reviews.map((review) => ({
+                  ...review,
+                  placeId: placeDetails.id,
+                })),
               },
             },
           },

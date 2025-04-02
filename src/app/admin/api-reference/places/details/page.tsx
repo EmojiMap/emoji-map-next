@@ -257,6 +257,8 @@ function DetailsForm() {
     );
   };
 
+  console.log({ placeDetailsQuery });
+
   return (
     <div className='flex flex-col gap-8 p-4'>
       {/* Search Form Card */}
@@ -366,14 +368,10 @@ function DetailsForm() {
                   size='sm'
                   onClick={() => {
                     router.push(
-                      `/admin/api-reference/places/photos?id=${
-                        placeDetailsQuery.data.data?.name?.replace(
-                          'places/',
-                          ''
-                        ) || placeId
-                      }`
+                      `/admin/api-reference/places/photos?id=${placeDetailsQuery.data.data?.id}`
                     );
                   }}
+                  disabled={!placeDetailsQuery.data.data?.id}
                 >
                   Get Photos
                 </Button>
@@ -516,21 +514,26 @@ function DetailsForm() {
                       <div className='space-y-4 p-4'>
                         {placeDetailsQuery.data.data && (
                           <>
-                            {/* Name and basic info */}
-                            <h3 className='text-lg font-semibold'>
-                              {placeDetailsQuery.data.data.displayName ||
-                                'Name not available'}
-                            </h3>
+                            {/* Name and Emoji */}
+                            <div className='flex justify-between'>
+                              <h3 className='text-lg font-semibold'>
+                                {placeDetailsQuery.data.data.name ||
+                                  'Name not available'}
+                              </h3>
+
+                              {/* TODO add emoji after exporting util */}
+                              <h3></h3>
+                            </div>
 
                             <div className='p-3 border rounded-md bg-muted/30'>
                               <div className='space-y-1'>
                                 {renderDetailField(
                                   formatFieldName('Name'),
-                                  placeDetailsQuery.data.data.displayName
+                                  placeDetailsQuery.data.data.name
                                 )}
                                 {renderDetailField(
                                   'Google Place ID',
-                                  placeDetailsQuery.data.data.name
+                                  placeDetailsQuery.data.data.id
                                 )}
                                 {renderDetailField(
                                   formatFieldName('PrimaryType'),
@@ -539,15 +542,15 @@ function DetailsForm() {
                                 )}
                                 {renderDetailField(
                                   'Address',
-                                  placeDetailsQuery.data.data.formattedAddress
+                                  placeDetailsQuery.data.data.address
                                 )}
                                 {renderDetailField(
                                   'Latitude',
-                                  placeDetailsQuery.data.data.location.latitude
+                                  placeDetailsQuery.data.data.latitude
                                 )}
                                 {renderDetailField(
                                   'Longitude',
-                                  placeDetailsQuery.data.data.location.longitude
+                                  placeDetailsQuery.data.data.longitude
                                 )}
 
                                 <div className='flex justify-between items-start py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0'>
@@ -559,10 +562,10 @@ function DetailsForm() {
                                           key={`rating-star-${star}`}
                                           className={`text-xl ${
                                             (placeDetailsQuery.data.data
-                                              .rating || 0) >= star
+                                              .googleRating || 0) >= star
                                               ? 'text-yellow-400'
                                               : (placeDetailsQuery.data.data
-                                                  .rating || 0) >=
+                                                  .googleRating || 0) >=
                                                 star - 0.5
                                               ? 'text-yellow-400/70'
                                               : 'text-gray-300'
@@ -574,8 +577,8 @@ function DetailsForm() {
                                     </div>
                                     <span>
                                       (
-                                      {placeDetailsQuery.data.data.rating ||
-                                        'No rating'}
+                                      {placeDetailsQuery.data.data
+                                        .googleRating || 'No rating'}
                                       )
                                     </span>
                                   </div>
@@ -682,24 +685,25 @@ function DetailsForm() {
                             </div>
 
                             {/* Payment Options */}
-                            {placeDetailsQuery.data.data.paymentOptions && (
-                              <div className='p-3 border rounded-md bg-muted/30'>
-                                <p className='text-sm font-medium mb-2'>
-                                  Payment Options:
-                                </p>
-                                <div className='space-y-1'>
-                                  {Object.entries(
-                                    placeDetailsQuery.data.data.paymentOptions
-                                  ).map(([key, value]) => {
-                                    const formattedKey = formatFieldName(key);
-                                    return renderDetailField(
-                                      formattedKey,
-                                      value
-                                    );
-                                  })}
-                                </div>
+                            <div className='p-3 border rounded-md bg-muted/30'>
+                              <p className='text-sm font-medium mb-2'>
+                                Payment Options:
+                              </p>
+                              <div className='space-y-1'>
+                                {renderDetailField(
+                                  formatFieldName('acceptsCashOnly'),
+                                  placeDetailsQuery.data.data.acceptsCashOnly
+                                )}
+                                {renderDetailField(
+                                  formatFieldName('acceptsCreditCards'),
+                                  placeDetailsQuery.data.data.acceptsCreditCards
+                                )}
+                                {renderDetailField(
+                                  formatFieldName('acceptsDebitCards'),
+                                  placeDetailsQuery.data.data.acceptsDebitCards
+                                )}
                               </div>
-                            )}
+                            </div>
 
                             {/* Editorial Summary */}
                             <div className='p-3 border rounded-md bg-muted/30'>
@@ -772,10 +776,8 @@ function DetailsForm() {
                                               'Unknown date'}
                                           </p>
                                           <p className='text-sm'>
-                                            {typeof review.text === 'object' &&
-                                            review.text?.text
-                                              ? review.text.text
-                                              : typeof review.text === 'string'
+                                            {review.text &&
+                                            typeof review.text === 'string'
                                               ? review.text
                                               : 'No review text'}
                                           </p>

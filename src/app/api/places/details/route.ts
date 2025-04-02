@@ -6,9 +6,7 @@ import { redis } from '@/lib/redis';
 import { fetchDetails } from '@/services/places/details/fetch-details/fetch-details';
 import { generateCacheKey } from '@/services/places/details/generate-cache-key/generate-cache-key';
 import { getSearchParams } from '@/services/places/details/get-search-params/get-search-params';
-import { transformDbPlaceToGoogleDetails } from '@/services/places/details/transformers/db-place-to-google-details';
-import { transformGoogleDetailsToDbPlace } from '@/services/places/details/transformers/google-details-to-db-place';
-import type { Detail, DetailResponse } from '@/types/details';
+import type { DetailResponse } from '@/types/details';
 import type { ErrorResponse } from '@/types/error-response';
 import { log } from '@/utils/log';
 
@@ -20,7 +18,7 @@ export async function GET(
     const cacheKey = generateCacheKey({ id });
 
     if (!bypassCache && cacheKey) {
-      const cachedData = await redis.get<Detail>(cacheKey);
+      const cachedData = await redis.get<DetailResponse['data']>(cacheKey);
 
       if (cachedData) {
         log.success(`[DETAILS] Cache hit`);
@@ -47,16 +45,14 @@ export async function GET(
     if (place) {
       log.info(`[DETAILS] found place in db`);
 
-      const details = transformDbPlaceToGoogleDetails(place);
-
-      await redis.set(cacheKey, details, {
+      await redis.set(cacheKey, place, {
         ex: DETAILS_CONFIG.CACHE_EXPIRATION_TIME,
       });
 
       log.info(`[DETAILS] cache set`);
 
       return NextResponse.json({
-        data: details,
+        data: place,
         cacheHit: false,
         count: 1,
       });
@@ -68,44 +64,75 @@ export async function GET(
 
     log.info(`[DETAILS] fetched details from google`);
 
-    const { place: dbPlace, reviews: dbReviews } =
-      transformGoogleDetailsToDbPlace(details);
-
     await prisma.place.create({
-      data: dbPlace,
+      data: {
+        id: details.id,
+        name: details.name,
+        latitude: details.latitude,
+        longitude: details.longitude,
+        address: details.address,
+        merchantId: null,
+        allowsDogs: details.allowsDogs,
+        delivery: details.delivery,
+        editorialSummary: details.editorialSummary,
+        generativeSummary: details.generativeSummary,
+        goodForChildren: details.goodForChildren,
+        dineIn: details.dineIn,
+        goodForGroups: details.goodForGroups,
+        isFree: details.isFree,
+        liveMusic: details.liveMusic,
+        menuForChildren: details.menuForChildren,
+        outdoorSeating: details.outdoorSeating,
+        acceptsCashOnly: details.acceptsCashOnly,
+        acceptsCreditCards: details.acceptsCreditCards,
+        acceptsDebitCards: details.acceptsDebitCards,
+        priceLevel: details.priceLevel,
+        primaryTypeDisplayName: details.primaryTypeDisplayName,
+        googleRating: details.googleRating,
+        servesCoffee: details.servesCoffee,
+        servesDessert: details.servesDessert,
+        takeout: details.takeout,
+        restroom: details.restroom,
+        openNow: details.openNow,
+        userRatingCount: details.userRatingCount,
+      },
     });
 
-    if (dbReviews.length > 0) {
+    if (details.reviews.length > 0) {
       await prisma.review.createMany({
-        data: dbReviews.map((review) => ({
+        data: details.reviews.map((review) => ({
           ...review,
-          placeId: dbPlace.id,
+          placeId: details.id,
         })),
       });
     }
 
-    // get latest place + reviews from prisma
-    const updatedPlace = await prisma.place.findUnique({
+    // get updated place with reviews
+    const placesWithReviews = await prisma.place.findUnique({
       where: {
         id,
       },
-      include: { reviews: true },
+      include: {
+        reviews: true,
+      },
     });
 
-    if (!updatedPlace) {
-      throw new Error('Updated Place not found, Whoopsie');
+    if (!placesWithReviews) {
+      log.error(`[DETAILS] updated place not found in db`);
+      return NextResponse.json(
+        { error: 'Place not found in db', message: 'Place not found in db' },
+        { status: 404 }
+      );
     }
 
-    const updatedDetails = transformDbPlaceToGoogleDetails(updatedPlace);
-
-    await redis.set(cacheKey, updatedDetails, {
+    await redis.set(cacheKey, placesWithReviews, {
       ex: DETAILS_CONFIG.CACHE_EXPIRATION_TIME,
     });
 
     log.info(`[DETAILS] cache set`);
 
     return NextResponse.json({
-      data: updatedDetails,
+      data: placesWithReviews,
       cacheHit: false,
       count: 1,
     });

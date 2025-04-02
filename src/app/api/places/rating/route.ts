@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server';
 import { isNull, isUndefined, toNumber } from 'lodash-es';
 import { prisma } from '@/lib/db';
 import { fetchDetails } from '@/services/places/details/fetch-details/fetch-details';
-import { transformGoogleDetailsToDbPlace } from '@/services/places/details/transformers/google-details-to-db-place';
 import { getUserId } from '@/services/user/get-user-id';
 import type { ErrorResponse } from '@/types/error-response';
 import { log } from '@/utils/log';
@@ -78,18 +77,45 @@ export async function POST(request: NextRequest): Promise<
 
       log.info(`[RATING] fetched details from google`);
 
-      const { place: dbPlace, reviews: dbReviews } =
-        transformGoogleDetailsToDbPlace(details);
-
       place = await prisma.place.create({
-        data: dbPlace,
+        data: {
+          id: details.id,
+          name: details.name,
+          latitude: details.latitude,
+          longitude: details.longitude,
+          address: details.address,
+          merchantId: null,
+          allowsDogs: details.allowsDogs,
+          delivery: details.delivery,
+          editorialSummary: details.editorialSummary,
+          generativeSummary: details.generativeSummary,
+          goodForChildren: details.goodForChildren,
+          dineIn: details.dineIn,
+          goodForGroups: details.goodForGroups,
+          isFree: details.isFree,
+          liveMusic: details.liveMusic,
+          menuForChildren: details.menuForChildren,
+          outdoorSeating: details.outdoorSeating,
+          acceptsCashOnly: details.acceptsCashOnly,
+          acceptsCreditCards: details.acceptsCreditCards,
+          acceptsDebitCards: details.acceptsDebitCards,
+          priceLevel: details.priceLevel,
+          primaryTypeDisplayName: details.primaryTypeDisplayName,
+          googleRating: details.googleRating,
+          servesCoffee: details.servesCoffee,
+          servesDessert: details.servesDessert,
+          takeout: details.takeout,
+          restroom: details.restroom,
+          openNow: details.openNow,
+          userRatingCount: details.userRatingCount,
+        },
       });
 
-      if (dbReviews.length > 0) {
+      if (details.reviews.length > 0) {
         await prisma.review.createMany({
-          data: dbReviews.map((review) => ({
+          data: details.reviews.map((review) => ({
             ...review,
-            placeId: dbPlace.id,
+            placeId: details.id,
           })),
         });
       }
