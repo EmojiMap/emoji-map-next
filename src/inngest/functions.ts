@@ -1,13 +1,11 @@
 import { prisma } from '@/lib/db';
-import type { DetailResponse } from '@/types/details';
 import { inngest } from './client';
 
-export const checkIfPlaceExistsAndCreateIfNot = inngest.createFunction(
-  { id: 'places/check-if-place-exists-and-create-if-not' },
-  { event: 'places/check-if-place-exists-and-create-if-not' },
+export const upsertPlace = inngest.createFunction(
+  { id: 'places/upsert' },
+  { event: 'places/upsert' },
   async ({ event }) => {
-    const id: string = event.data.id;
-    const details: DetailResponse = event.data.details;
+    const { id, details } = event.data;
 
     const place = await prisma.place.findUnique({
       where: {
