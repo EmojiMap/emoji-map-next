@@ -13,6 +13,11 @@ type PlaceWithoutTimeStamps = Omit<Place, 'createdAt' | 'updatedAt'> & {
     longitude: number;
   };
   rating: number;
+  paymentOptions: {
+    acceptsCreditCards: boolean;
+    acceptsDebitCards: boolean;
+    acceptsCashOnly: boolean;
+  };
 };
 
 export type PlaceWithReviews = PlaceWithoutTimeStamps & {

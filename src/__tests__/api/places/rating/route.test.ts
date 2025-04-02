@@ -372,6 +372,11 @@ describe('Rating API Routes', () => {
           latitude: 37.7749,
           longitude: -122.4194,
         },
+        paymentOptions: {
+          acceptsCreditCards: true,
+          acceptsDebitCards: true,
+          acceptsCashOnly: false,
+        },
         merchantId: null,
         reviews: [
           {

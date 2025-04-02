@@ -60,6 +60,11 @@ export function transformDetailsData(
       longitude: data.location.longitude,
     },
     rating: data.rating || 0,
+    paymentOptions: {
+      acceptsCreditCards: data.paymentOptions?.acceptsCreditCards || false,
+      acceptsDebitCards: data.paymentOptions?.acceptsDebitCards || false,
+      acceptsCashOnly: data.paymentOptions?.acceptsCashOnly || false,
+    },
   };
 
   return normalizedData;

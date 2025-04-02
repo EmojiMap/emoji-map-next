@@ -81,6 +81,11 @@ describe('data-transformer', () => {
           longitude: -122.4194,
         },
         rating: 4.5,
+        paymentOptions: {
+          acceptsCreditCards: true,
+          acceptsDebitCards: true,
+          acceptsCashOnly: false,
+        },
         reviews: expect.arrayContaining([
           expect.objectContaining({
             id: 'review_1',
@@ -197,6 +202,11 @@ describe('data-transformer', () => {
           longitude: -122.4194,
         },
         rating: 3.5,
+        paymentOptions: {
+          acceptsCreditCards: false,
+          acceptsDebitCards: false,
+          acceptsCashOnly: false,
+        },
         reviews: [],
         takeout: false,
         delivery: false,

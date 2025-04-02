@@ -64,6 +64,11 @@ const mockGoogleDetails: PlaceWithReviews = {
     latitude: 37.7749,
     longitude: -122.4194,
   },
+  paymentOptions: {
+    acceptsCreditCards: true,
+    acceptsDebitCards: true,
+    acceptsCashOnly: false,
+  },
   reviews: [
     {
       id: 'review_1',

@@ -31,6 +31,11 @@ export async function GET(
           },
           displayName: cachedData.name,
           rating: cachedData.googleRating,
+          paymentOptions: {
+            acceptsCreditCards: Boolean(cachedData.acceptsCreditCards),
+            acceptsDebitCards: Boolean(cachedData.acceptsDebitCards),
+            acceptsCashOnly: Boolean(cachedData.acceptsCashOnly),
+          },
         };
 
         return NextResponse.json({
@@ -69,6 +74,11 @@ export async function GET(
         },
         displayName: place.name,
         rating: place.googleRating,
+        paymentOptions: {
+          acceptsCreditCards: Boolean(place.acceptsCreditCards),
+          acceptsDebitCards: Boolean(place.acceptsDebitCards),
+          acceptsCashOnly: Boolean(place.acceptsCashOnly),
+        },
       };
 
       return NextResponse.json({
@@ -159,6 +169,11 @@ export async function GET(
       },
       displayName: placesWithReviews.name,
       rating: placesWithReviews.googleRating,
+      paymentOptions: {
+        acceptsCreditCards: Boolean(placesWithReviews.acceptsCreditCards),
+        acceptsDebitCards: Boolean(placesWithReviews.acceptsDebitCards),
+        acceptsCashOnly: Boolean(placesWithReviews.acceptsCashOnly),
+      },
     };
 
     return NextResponse.json({

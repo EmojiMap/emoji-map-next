@@ -85,51 +85,71 @@ describe('Details API Route', () => {
     ],
   };
 
+  const mockPlaceTransformed = {
+    ...mockPlace,
+    location: {
+      latitude: mockPlace.latitude,
+      longitude: mockPlace.longitude,
+    },
+    displayName: mockPlace.name,
+    rating: mockPlace.googleRating,
+    paymentOptions: {
+      acceptsCreditCards: Boolean(mockPlace.acceptsCreditCards),
+      acceptsDebitCards: Boolean(mockPlace.acceptsDebitCards),
+      acceptsCashOnly: Boolean(mockPlace.acceptsCashOnly),
+    },
+  };
+
   const mockGoogleDetails: PlaceWithReviews = {
     id: 'test_place_123',
     name: 'Test Place',
     displayName: 'Test Place',
+    googleRating: 4.5,
+    rating: 4.5,
     latitude: 37.7749,
     longitude: -122.4194,
     location: {
       latitude: 37.7749,
       longitude: -122.4194,
     },
-    googleRating: 4.5,
-    rating: 4.5,
-    userRatingCount: 100,
-    priceLevel: 2,
-    address: '123 Test St',
-    primaryTypeDisplayName: 'Restaurant',
-    editorialSummary: 'A test place',
-    generativeSummary: 'A generated summary',
-    isFree: false,
-    openNow: true,
-    merchantId: null,
-    dineIn: true,
-    takeout: true,
-    delivery: false,
-    servesCoffee: true,
-    servesDessert: true,
-    outdoorSeating: true,
-    liveMusic: false,
-    acceptsCreditCards: true,
-    acceptsDebitCards: true,
-    acceptsCashOnly: false,
-    goodForChildren: true,
-    goodForGroups: true,
-    menuForChildren: false,
-    restroom: true,
-    allowsDogs: false,
+    paymentOptions: {
+      acceptsCreditCards: true,
+      acceptsDebitCards: true,
+      acceptsCashOnly: false,
+    },
     reviews: [
       {
         id: 'review_1',
+        relativePublishTimeDescription: '2 days ago',
         rating: 5,
         text: 'Great place!',
-        relativePublishTimeDescription: '2 days ago',
         status: 'DEFAULT',
       },
     ],
+    priceLevel: 2,
+    userRatingCount: 100,
+    primaryTypeDisplayName: 'Restaurant',
+    takeout: true,
+    delivery: false,
+    dineIn: true,
+    editorialSummary: 'A test place',
+    outdoorSeating: true,
+    liveMusic: false,
+    menuForChildren: true,
+    servesDessert: true,
+    servesCoffee: true,
+    goodForChildren: true,
+    goodForGroups: true,
+    allowsDogs: false,
+    restroom: true,
+    acceptsCashOnly: false,
+    acceptsCreditCards: true,
+    acceptsDebitCards: true,
+    generativeSummary: 'A generated summary',
+    isFree: false,
+    address: '123 Test St',
+    openNow: true,
+    merchantId: null,
   };
 
   beforeEach(() => {
@@ -150,15 +170,7 @@ describe('Details API Route', () => {
     // Assert
     expect(response.status).toBe(200);
     expect(data).toEqual({
-      data: {
-        ...mockPlace,
-        location: {
-          latitude: mockPlace.latitude,
-          longitude: mockPlace.longitude,
-        },
-        displayName: mockPlace.name,
-        rating: mockPlace.googleRating,
-      },
+      data: mockPlaceTransformed,
       cacheHit: true,
       count: 1,
     });
@@ -179,15 +191,7 @@ describe('Details API Route', () => {
     // Assert
     expect(response.status).toBe(200);
     expect(data).toEqual({
-      data: {
-        ...mockPlace,
-        location: {
-          latitude: mockPlace.latitude,
-          longitude: mockPlace.longitude,
-        },
-        displayName: mockPlace.name,
-        rating: mockPlace.googleRating,
-      },
+      data: mockPlaceTransformed,
       cacheHit: false,
       count: 1,
     });
@@ -213,15 +217,7 @@ describe('Details API Route', () => {
     // Assert
     expect(response.status).toBe(200);
     expect(data).toEqual({
-      data: {
-        ...mockPlace,
-        location: {
-          latitude: mockPlace.latitude,
-          longitude: mockPlace.longitude,
-        },
-        displayName: mockPlace.name,
-        rating: mockPlace.googleRating,
-      },
+      data: mockPlaceTransformed,
       cacheHit: false,
       count: 1,
     });
@@ -241,15 +237,7 @@ describe('Details API Route', () => {
     // Assert
     expect(response.status).toBe(200);
     expect(data).toEqual({
-      data: {
-        ...mockPlace,
-        location: {
-          latitude: mockPlace.latitude,
-          longitude: mockPlace.longitude,
-        },
-        displayName: mockPlace.name,
-        rating: mockPlace.googleRating,
-      },
+      data: mockPlaceTransformed,
       cacheHit: false,
       count: 1,
     });

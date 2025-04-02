@@ -126,6 +126,11 @@ describe('Favorite API Routes', () => {
     },
     googleRating: 4.5,
     rating: 4.5,
+    paymentOptions: {
+      acceptsCreditCards: true,
+      acceptsDebitCards: true,
+      acceptsCashOnly: false,
+    },
     address: '123 Test St',
     merchantId: null,
     allowsDogs: false,
