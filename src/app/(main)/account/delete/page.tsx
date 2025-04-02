@@ -16,7 +16,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { env } from '@/env';
 
 export default function AccountPage() {
   const { signOut } = useClerk();
@@ -27,9 +26,8 @@ export default function AccountPage() {
   const deleteAccountMutation = useMutation({
     mutationFn: async () => {
       const token = await getToken();
-      const apiBaseUrl = env.NEXT_PUBLIC_SITE_URL;
 
-      const response = await fetch(`${apiBaseUrl}/api/user`, {
+      const response = await fetch(`/api/user`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${token}`,
