@@ -75,6 +75,12 @@ describe('data-transformer', () => {
       expect(result).toEqual({
         id: 'test_place_123',
         name: 'Test Restaurant Display Name',
+        displayName: 'Test Restaurant Display Name',
+        location: {
+          latitude: 37.7749,
+          longitude: -122.4194,
+        },
+        rating: 4.5,
         reviews: expect.arrayContaining([
           expect.objectContaining({
             id: 'review_1',
@@ -185,6 +191,12 @@ describe('data-transformer', () => {
       expect(result).toMatchObject({
         id: 'minimal_place_123',
         name: '',
+        displayName: '',
+        location: {
+          latitude: 37.7749,
+          longitude: -122.4194,
+        },
+        rating: 3.5,
         reviews: [],
         takeout: false,
         delivery: false,

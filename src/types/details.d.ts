@@ -6,7 +6,14 @@ type ReviewWithoutTimeStamps = Omit<
   'createdAt' | 'updatedAt' | 'placeId'
 >;
 
-type PlaceWithoutTimeStamps = Omit<Place, 'createdAt' | 'updatedAt'>;
+type PlaceWithoutTimeStamps = Omit<Place, 'createdAt' | 'updatedAt'> & {
+  displayName: string;
+  location: {
+    latitude: number;
+    longitude: number;
+  };
+  rating: number;
+};
 
 export type PlaceWithReviews = PlaceWithoutTimeStamps & {
   reviews: ReviewWithoutTimeStamps[];

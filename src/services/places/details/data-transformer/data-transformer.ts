@@ -54,6 +54,12 @@ export function transformDetailsData(
     servesDessert: data.servesDessert || false,
     takeout: data.takeout || false,
     userRatingCount: data.userRatingCount || 0,
+    displayName: data.displayName?.text || '',
+    location: {
+      latitude: data.location.latitude,
+      longitude: data.location.longitude,
+    },
+    rating: data.rating || 0,
   };
 
   return normalizedData;

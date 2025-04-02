@@ -117,8 +117,15 @@ describe('Favorite API Routes', () => {
   const mockPlaceDetails: PlaceWithReviews = {
     id: mockPlaceId,
     name: 'Test Place',
+    displayName: 'Test Place',
     latitude: 37.7749,
     longitude: -122.4194,
+    location: {
+      latitude: 37.7749,
+      longitude: -122.4194,
+    },
+    googleRating: 4.5,
+    rating: 4.5,
     address: '123 Test St',
     merchantId: null,
     allowsDogs: false,
@@ -137,7 +144,6 @@ describe('Favorite API Routes', () => {
     acceptsDebitCards: true,
     priceLevel: 2,
     primaryTypeDisplayName: 'Restaurant',
-    googleRating: 4.5,
     servesCoffee: true,
     servesDessert: true,
     takeout: true,

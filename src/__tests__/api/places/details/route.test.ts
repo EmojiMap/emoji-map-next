@@ -88,9 +88,15 @@ describe('Details API Route', () => {
   const mockGoogleDetails: PlaceWithReviews = {
     id: 'test_place_123',
     name: 'Test Place',
+    displayName: 'Test Place',
     latitude: 37.7749,
     longitude: -122.4194,
+    location: {
+      latitude: 37.7749,
+      longitude: -122.4194,
+    },
     googleRating: 4.5,
+    rating: 4.5,
     userRatingCount: 100,
     priceLevel: 2,
     address: '123 Test St',
@@ -144,7 +150,15 @@ describe('Details API Route', () => {
     // Assert
     expect(response.status).toBe(200);
     expect(data).toEqual({
-      data: mockPlace,
+      data: {
+        ...mockPlace,
+        location: {
+          latitude: mockPlace.latitude,
+          longitude: mockPlace.longitude,
+        },
+        displayName: mockPlace.name,
+        rating: mockPlace.googleRating,
+      },
       cacheHit: true,
       count: 1,
     });
@@ -165,7 +179,15 @@ describe('Details API Route', () => {
     // Assert
     expect(response.status).toBe(200);
     expect(data).toEqual({
-      data: mockPlace,
+      data: {
+        ...mockPlace,
+        location: {
+          latitude: mockPlace.latitude,
+          longitude: mockPlace.longitude,
+        },
+        displayName: mockPlace.name,
+        rating: mockPlace.googleRating,
+      },
       cacheHit: false,
       count: 1,
     });
@@ -191,7 +213,15 @@ describe('Details API Route', () => {
     // Assert
     expect(response.status).toBe(200);
     expect(data).toEqual({
-      data: mockPlace,
+      data: {
+        ...mockPlace,
+        location: {
+          latitude: mockPlace.latitude,
+          longitude: mockPlace.longitude,
+        },
+        displayName: mockPlace.name,
+        rating: mockPlace.googleRating,
+      },
       cacheHit: false,
       count: 1,
     });
@@ -211,7 +241,15 @@ describe('Details API Route', () => {
     // Assert
     expect(response.status).toBe(200);
     expect(data).toEqual({
-      data: mockPlace,
+      data: {
+        ...mockPlace,
+        location: {
+          latitude: mockPlace.latitude,
+          longitude: mockPlace.longitude,
+        },
+        displayName: mockPlace.name,
+        rating: mockPlace.googleRating,
+      },
       cacheHit: false,
       count: 1,
     });

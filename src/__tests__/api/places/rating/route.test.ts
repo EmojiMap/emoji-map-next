@@ -363,7 +363,15 @@ describe('Rating API Routes', () => {
       const mockGoogleDetails: PlaceWithReviews = {
         id: 'place_123',
         name: 'Test Place',
+        displayName: 'Test Place',
         googleRating: 4.5,
+        rating: 4.5,
+        latitude: 37.7749,
+        longitude: -122.4194,
+        location: {
+          latitude: 37.7749,
+          longitude: -122.4194,
+        },
         merchantId: null,
         reviews: [
           {
@@ -402,8 +410,6 @@ describe('Rating API Routes', () => {
         acceptsDebitCards: true,
         generativeSummary: 'This is a generative summary of the restaurant',
         isFree: false,
-        latitude: 37.7749,
-        longitude: -122.4194,
         address: '123 Test St, San Francisco, CA',
         openNow: true,
       };

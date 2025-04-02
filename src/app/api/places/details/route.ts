@@ -23,8 +23,18 @@ export async function GET(
       if (cachedData) {
         log.success(`[DETAILS] Cache hit`);
 
+        const modifiedCachedData = {
+          ...cachedData,
+          location: {
+            latitude: cachedData.latitude,
+            longitude: cachedData.longitude,
+          },
+          displayName: cachedData.name,
+          rating: cachedData.googleRating,
+        };
+
         return NextResponse.json({
-          data: cachedData,
+          data: modifiedCachedData,
           cacheHit: true,
           count: 1,
         });
@@ -51,8 +61,18 @@ export async function GET(
 
       log.info(`[DETAILS] cache set`);
 
+      const modifiedPlace = {
+        ...place,
+        location: {
+          latitude: place.latitude,
+          longitude: place.longitude,
+        },
+        displayName: place.name,
+        rating: place.googleRating,
+      };
+
       return NextResponse.json({
-        data: place,
+        data: modifiedPlace,
         cacheHit: false,
         count: 1,
       });
@@ -131,8 +151,18 @@ export async function GET(
 
     log.info(`[DETAILS] cache set`);
 
+    const modifiedPlacesWithReviews = {
+      ...placesWithReviews,
+      location: {
+        latitude: placesWithReviews.latitude,
+        longitude: placesWithReviews.longitude,
+      },
+      displayName: placesWithReviews.name,
+      rating: placesWithReviews.googleRating,
+    };
+
     return NextResponse.json({
-      data: placesWithReviews,
+      data: modifiedPlacesWithReviews,
       cacheHit: false,
       count: 1,
     });
