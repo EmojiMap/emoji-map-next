@@ -16,7 +16,7 @@ export async function GET(
     // Send event to create place if it doesn't exist
     // without blocking the response
     inngest.send({
-      name: 'places/check-if-place-exists-and-create-if-not',
+      name: 'places/upsert',
       data: {
         id,
         details,

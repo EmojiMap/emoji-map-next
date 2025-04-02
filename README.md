@@ -388,26 +388,15 @@ This will start the Inngest dev server, providing a local UI to monitor and debu
 
 ### Event Functions
 
-The application defines several Inngest functions for background processing:
+The application defines several Inngest functions for background processing
 
-```typescript
-// Example of an Inngest function that processes place data
-export const checkIfPlaceExistsAndCreateIfNot = inngest.createFunction(
-  { id: 'places/check-if-place-exists-and-create-if-not' },
-  { event: 'places/check-if-place-exists-and-create-if-not' },
-  async ({ event }) => {
-    // Process place data asynchronously
-    // Create or update place in database
-  }
-);
-```
 
 ### Event Flow
 
 1. **Event Triggering**: Events are sent to Inngest from various parts of the application:
    ```typescript
    await inngest.send({
-     name: 'places/check-if-place-exists-and-create-if-not',
+     name: 'places/upsert',
      data: { id, details },
    });
    ```

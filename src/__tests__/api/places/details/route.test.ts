@@ -113,7 +113,7 @@ describe('Places Details API', () => {
 
     // Verify Inngest event was sent
     expect(inngest.send).toHaveBeenCalledWith({
-      name: 'places/check-if-place-exists-and-create-if-not',
+      name: 'places/upsert',
       data: {
         id: mockPlaceId,
         details: mockDetailsResponse,
@@ -152,7 +152,7 @@ describe('Places Details API', () => {
 
     // Verify Inngest event was still sent even with cached data
     expect(inngest.send).toHaveBeenCalledWith({
-      name: 'places/check-if-place-exists-and-create-if-not',
+      name: 'places/upsert',
       data: {
         id: mockPlaceId,
         details: cachedResponse,
@@ -180,7 +180,7 @@ describe('Places Details API', () => {
 
     // Verify Inngest event was sent
     expect(inngest.send).toHaveBeenCalledWith({
-      name: 'places/check-if-place-exists-and-create-if-not',
+      name: 'places/upsert',
       data: {
         id: mockPlaceId,
         details: mockDetailsResponse,
@@ -256,7 +256,7 @@ describe('Places Details API', () => {
 
     // Verify Inngest event was sent
     expect(inngest.send).toHaveBeenCalledWith({
-      name: 'places/check-if-place-exists-and-create-if-not',
+      name: 'places/upsert',
       data: {
         id: mockPlaceId,
         details: mockDetailsResponse,
