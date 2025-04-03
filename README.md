@@ -393,13 +393,7 @@ The application defines several Inngest functions for background processing
 
 ### Event Flow
 
-1. **Event Triggering**: Events are sent to Inngest from various parts of the application:
-   ```typescript
-   await inngest.send({
-     name: 'places/upsert',
-     data: { id, details },
-   });
-   ```
+1. **Event Triggering**: Events are sent to Inngest from various parts of the application
 
 2. **Event Processing**: Inngest functions process these events asynchronously:
    - Events are queued and processed in the background

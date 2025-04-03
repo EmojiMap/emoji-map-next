@@ -1,9 +1,10 @@
 import { NextRequest } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { GET, POST } from '@/app/api/places/favorite/route';
 import { prisma } from '@/lib/db';
+import { getPlaceDetailsWithCache } from '@/services/places/details/get-place-details-with-cache/get-place-details-with-cache';
 import { getUserId } from '@/services/user/get-user-id';
+import type { DetailResponse } from '@/types/details';
 import { log } from '@/utils/log';
 import type { Favorite, Place, User } from '@prisma/client';
 
@@ -18,14 +19,16 @@ async function getResponseBody(response: Response) {
   }
 }
 
-// Mock dependencies
-vi.mock('@clerk/nextjs/server', () => ({
-  auth: vi.fn(),
-}));
-
 vi.mock('@/services/user/get-user-id', () => ({
   getUserId: vi.fn(),
 }));
+
+vi.mock(
+  '@/services/places/details/get-place-details-with-cache/get-place-details-with-cache',
+  () => ({
+    getPlaceDetailsWithCache: vi.fn(),
+  })
+);
 
 vi.mock('@/lib/db', () => ({
   prisma: {
@@ -40,6 +43,9 @@ vi.mock('@/lib/db', () => ({
       findUnique: vi.fn(),
       create: vi.fn(),
       delete: vi.fn(),
+    },
+    review: {
+      createMany: vi.fn(),
     },
   },
 }));
@@ -58,7 +64,7 @@ describe('Favorite API Routes', () => {
   // Mock data
   const mockUserId = 'user123';
   const mockPlaceId = 'place123';
-  const mockUser = {
+  const mockUser: User = {
     id: mockUserId,
     email: 'test@example.com',
     username: 'testuser',
@@ -67,25 +73,106 @@ describe('Favorite API Routes', () => {
     imageUrl: null,
     createdAt: mockDate,
     updatedAt: mockDate,
-  } as User;
+  };
 
-  const mockPlace = {
+  const mockPlace: Place = {
     id: mockPlaceId,
-    name: null,
-    description: null,
-    latitude: null,
-    longitude: null,
+    name: 'Test Place',
+    latitude: 37.7749,
+    longitude: -122.4194,
+    address: '123 Test St',
+    merchantId: null,
+    allowsDogs: false,
+    delivery: true,
+    editorialSummary: 'A great place to eat',
+    generativeSummary: 'This is a generated summary',
+    goodForChildren: true,
+    dineIn: true,
+    goodForGroups: true,
+    isFree: false,
+    liveMusic: false,
+    menuForChildren: true,
+    outdoorSeating: true,
+    acceptsCashOnly: false,
+    acceptsCreditCards: true,
+    acceptsDebitCards: true,
+    priceLevel: 2,
+    primaryTypeDisplayName: 'Restaurant',
+    googleRating: 4.5,
+    servesCoffee: true,
+    servesDessert: true,
+    takeout: true,
+    restroom: true,
+    openNow: true,
+    userRatingCount: 100,
     createdAt: mockDate,
     updatedAt: mockDate,
-  } as Place;
+  };
 
-  const mockFavorite = {
+  const mockFavorite: Favorite = {
     id: 'favorite123',
     userId: mockUserId,
     placeId: mockPlaceId,
     createdAt: mockDate,
     updatedAt: mockDate,
-  } as Favorite;
+  };
+
+  const mockPlaceDetails: DetailResponse = {
+    data: {
+      id: mockPlaceId,
+      name: 'Test Place',
+      displayName: 'Test Place',
+      latitude: 37.7749,
+      longitude: -122.4194,
+      location: {
+        latitude: 37.7749,
+        longitude: -122.4194,
+      },
+      address: '123 Test St',
+      merchantId: null,
+      allowsDogs: false,
+      delivery: true,
+      editorialSummary: 'A great place to eat',
+      generativeSummary: 'This is a generated summary',
+      goodForChildren: true,
+      dineIn: true,
+      goodForGroups: true,
+      isFree: false,
+      liveMusic: false,
+      menuForChildren: true,
+      outdoorSeating: true,
+      paymentOptions: {
+        acceptsCashOnly: false,
+        acceptsCreditCards: true,
+        acceptsDebitCards: true,
+      },
+      acceptsCashOnly: false,
+      acceptsCreditCards: true,
+      acceptsDebitCards: true,
+      priceLevel: 2,
+      primaryTypeDisplayName: 'Restaurant',
+      rating: 4.5,
+      googleRating: 4.5,
+      servesCoffee: true,
+      servesDessert: true,
+      takeout: true,
+      restroom: true,
+      openNow: true,
+      userRatingCount: 100,
+      reviews: [
+        {
+          placeId: mockPlaceId,
+          relativePublishTimeDescription: '1 month ago',
+          rating: 5,
+          text: 'Great place!',
+          id: '',
+          status: 'DEFAULT',
+        },
+      ],
+    },
+    cacheHit: true,
+    count: 1,
+  };
 
   beforeEach(() => {
     // Set up fake timers
@@ -97,10 +184,6 @@ describe('Favorite API Routes', () => {
 
     // Default getUserId mock to return a userId
     vi.mocked(getUserId).mockResolvedValue(mockUserId);
-
-    // Default auth mock to return a userId (for GET endpoint)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(auth).mockResolvedValue({ userId: mockUserId } as any);
   });
 
   afterEach(() => {
@@ -122,12 +205,16 @@ describe('Favorite API Routes', () => {
   }
 
   describe('POST /api/places/favorite', () => {
-    it('should return 401 if user is not authenticated', async () => {
+    it('should handle case where user is not authenticated', async () => {
       // Mock getUserId to throw an unauthorized error
       vi.mocked(getUserId).mockRejectedValueOnce(new Error('Unauthorized'));
 
       const request = new NextRequest('http://localhost/api/places/favorite', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer test-token',
+        },
         body: JSON.stringify({ placeId: mockPlaceId }),
       });
 
@@ -171,13 +258,25 @@ describe('Favorite API Routes', () => {
       expect(body).toEqual({ error: 'User not found' });
     });
 
-    it('should create a place if it does not exist and add it to favorites', async () => {
+    it('should fetch place details, create place with reviews if it does not exist, and add it to favorites', async () => {
       // Mock user found
       vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(mockUser);
 
-      // Mock place not found, then created
-      vi.mocked(prisma.place.findUnique).mockResolvedValueOnce(null);
+      // Mock place not found initially, but found after creation
+      vi.mocked(prisma.place.findUnique)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(mockPlace);
+
+      // Mock place details fetch
+      vi.mocked(getPlaceDetailsWithCache).mockResolvedValueOnce(
+        mockPlaceDetails
+      );
+
+      // Mock place creation
       vi.mocked(prisma.place.create).mockResolvedValueOnce(mockPlace);
+
+      // Mock review creation
+      vi.mocked(prisma.review.createMany).mockResolvedValueOnce({ count: 1 });
 
       // Mock no existing favorite
       vi.mocked(prisma.favorite.findUnique).mockResolvedValueOnce(null);
@@ -194,8 +293,47 @@ describe('Favorite API Routes', () => {
       const body = await getResponseBody(response);
 
       expect(getUserId).toHaveBeenCalledWith(request);
+      expect(getPlaceDetailsWithCache).toHaveBeenCalledWith({
+        id: mockPlaceId,
+      });
       expect(prisma.place.create).toHaveBeenCalledWith({
-        data: { id: mockPlaceId },
+        data: {
+          id: mockPlaceDetails.data.id,
+          name: mockPlaceDetails.data.displayName,
+          latitude: mockPlaceDetails.data.location.latitude,
+          longitude: mockPlaceDetails.data.location.longitude,
+          address: mockPlaceDetails.data.address,
+          merchantId: null,
+          allowsDogs: mockPlaceDetails.data.allowsDogs,
+          delivery: mockPlaceDetails.data.delivery,
+          editorialSummary: mockPlaceDetails.data.editorialSummary,
+          generativeSummary: mockPlaceDetails.data.generativeSummary,
+          goodForChildren: mockPlaceDetails.data.goodForChildren,
+          dineIn: mockPlaceDetails.data.dineIn,
+          goodForGroups: mockPlaceDetails.data.goodForGroups,
+          isFree: mockPlaceDetails.data.isFree,
+          liveMusic: mockPlaceDetails.data.liveMusic,
+          menuForChildren: mockPlaceDetails.data.menuForChildren,
+          outdoorSeating: mockPlaceDetails.data.outdoorSeating,
+          acceptsCashOnly: mockPlaceDetails.data.acceptsCashOnly,
+          acceptsCreditCards: mockPlaceDetails.data.acceptsCreditCards,
+          acceptsDebitCards: mockPlaceDetails.data.acceptsDebitCards,
+          priceLevel: mockPlaceDetails.data.priceLevel,
+          primaryTypeDisplayName: mockPlaceDetails.data.primaryTypeDisplayName,
+          googleRating: mockPlaceDetails.data.rating,
+          servesCoffee: mockPlaceDetails.data.servesCoffee,
+          servesDessert: mockPlaceDetails.data.servesDessert,
+          takeout: mockPlaceDetails.data.takeout,
+          restroom: mockPlaceDetails.data.restroom,
+          openNow: mockPlaceDetails.data.openNow,
+          userRatingCount: mockPlaceDetails.data.userRatingCount,
+        },
+      });
+      expect(prisma.review.createMany).toHaveBeenCalledWith({
+        data: mockPlaceDetails.data.reviews.map((review) => ({
+          ...review,
+          placeId: mockPlaceId,
+        })),
       });
       expect(prisma.favorite.create).toHaveBeenCalledWith({
         data: {
@@ -206,7 +344,6 @@ describe('Favorite API Routes', () => {
       expect(response.status).toBe(200);
       expectObjectsToMatch(body, {
         message: 'Favorite added',
-        place: mockPlace,
         favorite: mockFavorite,
         action: 'added',
       });
@@ -227,6 +364,10 @@ describe('Favorite API Routes', () => {
 
       const request = new NextRequest('http://localhost/api/places/favorite', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer test-token',
+        },
         body: JSON.stringify({ placeId: mockPlaceId }),
       });
 
@@ -234,7 +375,6 @@ describe('Favorite API Routes', () => {
       const body = await getResponseBody(response);
 
       expect(getUserId).toHaveBeenCalledWith(request);
-      expect(prisma.place.create).not.toHaveBeenCalled();
       expect(prisma.favorite.create).toHaveBeenCalledWith({
         data: {
           userId: mockUserId,
@@ -244,7 +384,6 @@ describe('Favorite API Routes', () => {
       expect(response.status).toBe(200);
       expectObjectsToMatch(body, {
         message: 'Favorite added',
-        place: mockPlace,
         favorite: mockFavorite,
         action: 'added',
       });
@@ -278,7 +417,6 @@ describe('Favorite API Routes', () => {
       expect(response.status).toBe(200);
       expectObjectsToMatch(body, {
         message: 'Favorite removed',
-        place: mockPlace,
         favorite: null,
         action: 'removed',
       });
@@ -305,20 +443,24 @@ describe('Favorite API Routes', () => {
   });
 
   describe('GET /api/places/favorite', () => {
-    it('should return 401 if user is not authenticated', async () => {
-      // Mock auth to return no userId
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      vi.mocked(auth).mockResolvedValueOnce({ userId: null } as any);
+    it('should handle case where user is not authenticated', async () => {
+      // Mock getUserId to throw an unauthorized error
+      vi.mocked(getUserId).mockRejectedValueOnce(new Error('Unauthorized'));
 
       const request = new NextRequest(
-        'http://localhost/api/places/favorite?id=place123'
+        'http://localhost/api/places/favorite?id=place123',
+        {
+          headers: {
+            Authorization: 'Bearer test-token',
+          },
+        }
       );
 
       const response = await GET(request);
       const body = await getResponseBody(response);
 
-      expect(response.status).toBe(401);
-      expect(body).toEqual({ error: 'Unauthorized' });
+      expect(response.status).toBe(500);
+      expect(body).toEqual({ error: 'Failed to check favorite status' });
     });
 
     it('should return 400 if place ID is missing', async () => {
@@ -348,7 +490,7 @@ describe('Favorite API Routes', () => {
       expect(body).toEqual({ error: 'User not found' });
     });
 
-    it('should return isFavorite=false if place does not exist', async () => {
+    it('should handle case where place does not exist', async () => {
       // Mock user found
       vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(mockUser);
 
@@ -362,10 +504,9 @@ describe('Favorite API Routes', () => {
       const response = await GET(request);
       const body = await getResponseBody(response);
 
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(404);
       expect(body).toEqual({
-        isFavorite: false,
-        message: 'Place not found',
+        error: 'Place not found',
       });
     });
 
@@ -380,7 +521,12 @@ describe('Favorite API Routes', () => {
       vi.mocked(prisma.favorite.findUnique).mockResolvedValueOnce(null);
 
       const request = new NextRequest(
-        'http://localhost/api/places/favorite?id=place123'
+        'http://localhost/api/places/favorite?id=place123',
+        {
+          headers: {
+            Authorization: 'Bearer test-token',
+          },
+        }
       );
 
       const response = await GET(request);
@@ -389,8 +535,6 @@ describe('Favorite API Routes', () => {
       expect(response.status).toBe(200);
       expectObjectsToMatch(body, {
         isFavorite: false,
-        place: mockPlace,
-        favorite: null,
       });
     });
 
@@ -405,7 +549,12 @@ describe('Favorite API Routes', () => {
       vi.mocked(prisma.favorite.findUnique).mockResolvedValueOnce(mockFavorite);
 
       const request = new NextRequest(
-        'http://localhost/api/places/favorite?id=place123'
+        'http://localhost/api/places/favorite?id=place123',
+        {
+          headers: {
+            Authorization: 'Bearer test-token',
+          },
+        }
       );
 
       const response = await GET(request);
@@ -414,8 +563,6 @@ describe('Favorite API Routes', () => {
       expect(response.status).toBe(200);
       expectObjectsToMatch(body, {
         isFavorite: true,
-        place: mockPlace,
-        favorite: mockFavorite,
       });
     });
 

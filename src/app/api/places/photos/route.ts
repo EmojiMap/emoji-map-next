@@ -60,3 +60,5 @@ export const config = {
     bodyParser: false,
   },
 };
+
+// TODO: cache photos by place id

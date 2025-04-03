@@ -33,39 +33,47 @@ describe('Places Details API', () => {
 
   const mockDetailsResponse: DetailResponse = {
     data: {
+      id: mockPlaceId,
       name: 'Test Place',
-      reviews: [],
-      rating: 4.5,
-      priceLevel: 2,
-      userRatingCount: 100,
-      openNow: true,
-      displayName: 'Test Place Display Name',
-      primaryTypeDisplayName: 'Restaurant',
-      takeout: true,
+      latitude: 37.7749,
+      longitude: -122.4194,
+      address: '123 Test St, Test City, TC 12345',
+      merchantId: null,
+      allowsDogs: false,
       delivery: true,
-      dineIn: true,
       editorialSummary: 'A great place to eat',
-      outdoorSeating: true,
+      generativeSummary: 'This is a generated summary of the place',
+      goodForChildren: true,
+      dineIn: true,
+      goodForGroups: true,
+      isFree: false,
       liveMusic: false,
       menuForChildren: true,
-      servesDessert: true,
+      outdoorSeating: true,
+      acceptsCashOnly: false,
+      acceptsCreditCards: true,
+      acceptsDebitCards: true,
+      priceLevel: 2,
+      primaryTypeDisplayName: 'Restaurant',
+      googleRating: 4.5,
       servesCoffee: true,
-      goodForChildren: true,
-      goodForGroups: true,
-      allowsDogs: false,
+      servesDessert: true,
+      takeout: true,
       restroom: true,
+      openNow: true,
+      userRatingCount: 100,
+      reviews: [],
+      displayName: 'Test Place Display Name',
+      location: {
+        latitude: 37.7749,
+        longitude: -122.4194,
+      },
       paymentOptions: {
         acceptsCreditCards: true,
         acceptsDebitCards: true,
         acceptsCashOnly: false,
       },
-      generativeSummary: 'This is a generated summary of the place',
-      isFree: false,
-      location: {
-        latitude: 37.7749,
-        longitude: -122.4194,
-      },
-      formattedAddress: '123 Test St, Test City, TC 12345',
+      rating: 4.5,
     },
     count: 1,
     cacheHit: false,
@@ -113,7 +121,7 @@ describe('Places Details API', () => {
 
     // Verify Inngest event was sent
     expect(inngest.send).toHaveBeenCalledWith({
-      name: 'places/upsert',
+      name: 'places/create',
       data: {
         id: mockPlaceId,
         details: mockDetailsResponse,
@@ -152,7 +160,7 @@ describe('Places Details API', () => {
 
     // Verify Inngest event was still sent even with cached data
     expect(inngest.send).toHaveBeenCalledWith({
-      name: 'places/upsert',
+      name: 'places/create',
       data: {
         id: mockPlaceId,
         details: cachedResponse,
@@ -180,7 +188,7 @@ describe('Places Details API', () => {
 
     // Verify Inngest event was sent
     expect(inngest.send).toHaveBeenCalledWith({
-      name: 'places/upsert',
+      name: 'places/create',
       data: {
         id: mockPlaceId,
         details: mockDetailsResponse,
@@ -256,7 +264,7 @@ describe('Places Details API', () => {
 
     // Verify Inngest event was sent
     expect(inngest.send).toHaveBeenCalledWith({
-      name: 'places/upsert',
+      name: 'places/create',
       data: {
         id: mockPlaceId,
         details: mockDetailsResponse,

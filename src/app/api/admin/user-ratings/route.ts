@@ -36,7 +36,7 @@ export async function GET(
         place: {
           select: {
             name: true,
-            description: true,
+            editorialSummary: true,
           },
         },
       },

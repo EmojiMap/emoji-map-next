@@ -203,10 +203,12 @@ export function UserDetailsDialog({
                               {favorite.place.name || 'Unnamed place'}
                             </TableCell>
                             <TableCell>
-                              {favorite.place.description?.substring(0, 100) ||
-                                'No description'}
-                              {favorite.place.description &&
-                                favorite.place.description.length > 100 &&
+                              {favorite.place.editorialSummary?.substring(
+                                0,
+                                100
+                              ) || 'No description'}
+                              {favorite.place.editorialSummary &&
+                                favorite.place.editorialSummary.length > 100 &&
                                 '...'}
                             </TableCell>
                             <TableCell>
@@ -272,10 +274,12 @@ export function UserDetailsDialog({
                               </div>
                             </TableCell>
                             <TableCell>
-                              {rating.place.description?.substring(0, 100) ||
-                                'No description'}
-                              {rating.place.description &&
-                                rating.place.description.length > 100 &&
+                              {rating.place.editorialSummary?.substring(
+                                0,
+                                100
+                              ) || 'No description'}
+                              {rating.place.editorialSummary &&
+                                rating.place.editorialSummary.length > 100 &&
                                 '...'}
                             </TableCell>
                             <TableCell>

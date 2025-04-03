@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
+import { fetchDetails } from '@/services/places/details/fetch-details/fetch-details';
 import { getUserId } from '@/services/user/get-user-id';
 import type { ErrorResponse } from '@/types/error-response';
 import type { UserResponse } from '@/types/user';
@@ -96,16 +97,64 @@ export async function POST(
 
         const existingPlaceIds = new Set(existingPlaces.map((p) => p.id));
 
-        // Create missing places in bulk
-        const placesToCreate = placeIds
-          .filter((id) => !existingPlaceIds.has(id))
-          .map((id) => ({ id }));
+        // Create missing places by fetching details from Google Places API
+        const placesToCreate = placeIds.filter(
+          (id) => !existingPlaceIds.has(id)
+        );
 
-        if (placesToCreate.length > 0) {
-          await tx.place.createMany({
-            data: placesToCreate,
-            skipDuplicates: true,
-          });
+        // Fetch and create places one by one since we need to call external API
+        for (const placeId of placesToCreate) {
+          try {
+            const details = await fetchDetails(placeId);
+
+            // Create the place
+            await tx.place.create({
+              data: {
+                id: details.id,
+                name: details.name,
+                latitude: details.latitude,
+                longitude: details.longitude,
+                address: details.address,
+                merchantId: null,
+                allowsDogs: details.allowsDogs,
+                delivery: details.delivery,
+                editorialSummary: details.editorialSummary,
+                generativeSummary: details.generativeSummary,
+                goodForChildren: details.goodForChildren,
+                dineIn: details.dineIn,
+                goodForGroups: details.goodForGroups,
+                isFree: details.isFree,
+                liveMusic: details.liveMusic,
+                menuForChildren: details.menuForChildren,
+                outdoorSeating: details.outdoorSeating,
+                acceptsCashOnly: details.acceptsCashOnly,
+                acceptsCreditCards: details.acceptsCreditCards,
+                acceptsDebitCards: details.acceptsDebitCards,
+                priceLevel: details.priceLevel,
+                primaryTypeDisplayName: details.primaryTypeDisplayName,
+                googleRating: details.googleRating,
+                servesCoffee: details.servesCoffee,
+                servesDessert: details.servesDessert,
+                takeout: details.takeout,
+                restroom: details.restroom,
+                openNow: details.openNow,
+                userRatingCount: details.userRatingCount,
+              },
+            });
+
+            // Create reviews if any
+            if (details.reviews.length > 0) {
+              await tx.review.createMany({
+                data: details.reviews.map((review) => ({
+                  ...review,
+                  placeId: details.id,
+                })),
+              });
+            }
+          } catch (error) {
+            log.error('Error creating place', { error, placeId });
+            result.favorites.errors++;
+          }
         }
 
         // Find existing user favorites in one query
@@ -172,16 +221,64 @@ export async function POST(
 
         const existingPlaceIds = new Set(existingPlaces.map((p) => p.id));
 
-        // Create missing places in bulk
-        const placesToCreate = placeIds
-          .filter((id) => !existingPlaceIds.has(id))
-          .map((id) => ({ id }));
+        // Create missing places by fetching details from Google Places API
+        const placesToCreate = placeIds.filter(
+          (id) => !existingPlaceIds.has(id)
+        );
 
-        if (placesToCreate.length > 0) {
-          await tx.place.createMany({
-            data: placesToCreate,
-            skipDuplicates: true,
-          });
+        // Fetch and create places one by one since we need to call external API
+        for (const placeId of placesToCreate) {
+          try {
+            const details = await fetchDetails(placeId);
+
+            // Create the place
+            await tx.place.create({
+              data: {
+                id: details.id,
+                name: details.name,
+                latitude: details.latitude,
+                longitude: details.longitude,
+                address: details.address,
+                merchantId: null,
+                allowsDogs: details.allowsDogs,
+                delivery: details.delivery,
+                editorialSummary: details.editorialSummary,
+                generativeSummary: details.generativeSummary,
+                goodForChildren: details.goodForChildren,
+                dineIn: details.dineIn,
+                goodForGroups: details.goodForGroups,
+                isFree: details.isFree,
+                liveMusic: details.liveMusic,
+                menuForChildren: details.menuForChildren,
+                outdoorSeating: details.outdoorSeating,
+                acceptsCashOnly: details.acceptsCashOnly,
+                acceptsCreditCards: details.acceptsCreditCards,
+                acceptsDebitCards: details.acceptsDebitCards,
+                priceLevel: details.priceLevel,
+                primaryTypeDisplayName: details.primaryTypeDisplayName,
+                googleRating: details.googleRating,
+                servesCoffee: details.servesCoffee,
+                servesDessert: details.servesDessert,
+                takeout: details.takeout,
+                restroom: details.restroom,
+                openNow: details.openNow,
+                userRatingCount: details.userRatingCount,
+              },
+            });
+
+            // Create reviews if any
+            if (details.reviews.length > 0) {
+              await tx.review.createMany({
+                data: details.reviews.map((review) => ({
+                  ...review,
+                  placeId: details.id,
+                })),
+              });
+            }
+          } catch (error) {
+            log.error('Error creating place', { error, placeId });
+            result.ratings.errors++;
+          }
         }
 
         // For ratings, we need to use upsert to handle both creation and updates

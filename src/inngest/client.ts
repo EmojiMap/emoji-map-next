@@ -1,7 +1,7 @@
 import { EventSchemas, Inngest } from 'inngest';
 import type { DetailResponse } from '@/types/details';
 
-type PlaceUpsert = {
+type PlaceCreate = {
   data: {
     id: string;
     details: DetailResponse;
@@ -9,7 +9,7 @@ type PlaceUpsert = {
 };
 
 type Events = {
-  'places/upsert': PlaceUpsert;
+  'places/create': PlaceCreate;
 };
 
 export const inngest = new Inngest({
