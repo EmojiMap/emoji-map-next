@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { isNull, isUndefined, toNumber } from 'lodash-es';
+import { isNull, isUndefined } from 'lodash-es';
 import { inngest } from '@/inngest/client';
 import { prisma } from '@/lib/db';
 import { getUserId } from '@/services/user/get-user-id';
@@ -41,7 +41,7 @@ export async function POST(
       );
     }
 
-    const userRating: string | undefined = params?.rating;
+    const userRating: number | undefined = params?.rating;
 
     if (!userRating) {
       log.error(
@@ -91,7 +91,7 @@ export async function POST(
         action = 'removed';
       }
       // If rating is being updated to the same rating, delete the rating
-      else if (existingRating.rating === toNumber(userRating)) {
+      else if (existingRating.rating === userRating) {
         log.debug('Rating is being removed');
         rating = await prisma.rating.delete({
           where: { id: existingRating.id },
@@ -103,7 +103,7 @@ export async function POST(
         log.debug('Rating is being updated');
         rating = await prisma.rating.update({
           where: { id: existingRating.id },
-          data: { rating: toNumber(userRating) },
+          data: { rating: userRating },
         });
         action = 'updated';
       }
@@ -124,7 +124,7 @@ export async function POST(
         data: {
           userId: user.id,
           placeId,
-          rating: toNumber(userRating),
+          rating: userRating,
         },
       });
 
@@ -148,6 +148,66 @@ export async function POST(
     log.error('Failed to process rating', { error });
     return NextResponse.json(
       { error: 'Failed to process rating' },
+      { status: 500 }
+    );
+  }
+}
+
+type GetRatingResponse = {
+  rating: number | null;
+};
+
+export async function GET(
+  request: NextRequest
+): Promise<NextResponse<GetRatingResponse | ErrorResponse>> {
+  try {
+    const userId = await getUserId(request);
+
+    const placeId = request.nextUrl.searchParams.get('id');
+
+    if (!placeId) {
+      return NextResponse.json(
+        { error: 'Place ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Find the user by id
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Check if the place exists
+    const place = await prisma.place.findUnique({
+      where: { id: placeId },
+    });
+
+    if (!place) {
+      return NextResponse.json({ error: 'Place not found' }, { status: 404 });
+    }
+
+    // Check if the user has rated this place
+    const rating = await prisma.rating.findUnique({
+      where: {
+        userId_placeId: {
+          userId: user.id,
+          placeId,
+        },
+      },
+    });
+
+    return NextResponse.json(
+      { rating: rating?.rating ?? null },
+      { status: 200 }
+    );
+  } catch (error) {
+    log.error('Failed to get rating', { error });
+    return NextResponse.json(
+      { error: 'Failed to get rating' },
       { status: 500 }
     );
   }

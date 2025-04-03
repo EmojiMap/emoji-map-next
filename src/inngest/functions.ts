@@ -19,6 +19,10 @@ export const createPlace = inngest.createFunction(
       return { message: `Place ${id} already exists` };
     }
 
+    if (!details.data) {
+      return { message: `Place ${id} details not found` };
+    }
+
     place = await prisma.place.create({
       data: {
         id: details.data.id,
@@ -50,17 +54,21 @@ export const createPlace = inngest.createFunction(
         restroom: details.data.restroom,
         openNow: details.data.openNow,
         userRatingCount: details.data.userRatingCount,
-
-        reviews: {
-          createMany: {
-            data: details.data.reviews,
-          },
-        },
       },
     });
 
     if (!place) {
       return { message: `Place ${id} not created` };
+    }
+
+    // TODO: create reviews
+    if (details.data.reviews) {
+      await prisma.review.createMany({
+        data: details.data.reviews.map((review) => ({
+          ...review,
+          placeId: place.id,
+        })),
+      });
     }
 
     return { message: `Place ${id} created` };

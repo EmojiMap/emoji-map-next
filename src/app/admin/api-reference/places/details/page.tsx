@@ -2,9 +2,10 @@
 
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuth } from '@clerk/nextjs';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronDownIcon, ChevronUpIcon } from 'lucide-react';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { ChevronDownIcon, ChevronUpIcon, Star } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -29,6 +30,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 import type { DetailResponse } from '@/types/details';
 
 // Form schema for place details
@@ -90,6 +92,7 @@ function DetailsForm() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const router = useRouter();
+  const { getToken } = useAuth();
 
   // State for request details debug information
   const [lastRequest, setLastRequest] = useState<{
@@ -159,6 +162,113 @@ function DetailsForm() {
     },
     enabled: false, // Don't run automatically on mount or when placeId changes
     retry: 1,
+  });
+
+  // Query for favorite status
+  const favoriteStatusQuery = useQuery({
+    queryKey: ['favoriteStatus', placeId],
+    queryFn: async () => {
+      if (!placeId) return null;
+      const token = await getToken();
+
+      const response = await fetch(`/api/places/favorite?id=${placeId}`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch favorite status');
+      }
+      return response.json();
+    },
+    enabled: !!placeId && !!placeDetailsQuery.data?.data?.id,
+  });
+
+  // Query for rating
+  const ratingQuery = useQuery({
+    queryKey: ['rating', placeId],
+    queryFn: async () => {
+      if (!placeId) return null;
+      const token = await getToken();
+
+      const response = await fetch(`/api/places/rating?id=${placeId}`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch rating');
+      }
+      return response.json();
+    },
+    enabled: !!placeId && !!placeDetailsQuery.data?.data?.id,
+  });
+
+  // Mutation for toggling favorite status
+  const toggleFavoriteMutation = useMutation({
+    mutationFn: async () => {
+      if (!placeId) throw new Error('No place ID');
+      const token = await getToken();
+
+      const response = await fetch('/api/places/favorite', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ placeId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to toggle favorite');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate both queries to refetch latest data
+      queryClient.invalidateQueries({ queryKey: ['favoriteStatus', placeId] });
+      toast.success('Favorite status updated');
+    },
+    onError: (error) => {
+      toast.error(`Failed to update favorite: ${error.message}`);
+    },
+  });
+
+  // Mutation for updating rating
+  const updateRatingMutation = useMutation({
+    mutationFn: async (rating: number) => {
+      if (!placeId) throw new Error('No place ID');
+      const token = await getToken();
+      const response = await fetch('/api/places/rating', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ placeId, rating }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to toggle favorite');
+      }
+
+      return response.json();
+    },
+    onSuccess: (_, rating) => {
+      // Update the rating query cache
+      queryClient.setQueryData(['rating', placeId], (oldData: { rating: number | null }) => ({
+        ...oldData,
+        rating: rating === oldData.rating ? null : rating,
+      }));
+
+      toast.success('Favorite status updated');
+    },
+    onError: (error) => {
+      toast.error(`Failed to update favorite: ${error.message}`);
+    },
   });
 
   // Function to clear place details query data
@@ -254,6 +364,45 @@ function DetailsForm() {
         .replace('Outdoor Seating', 'Has Outdoor Seating')
         .replace('Dine In', 'Offers Dine-In')
         .trim()
+    );
+  };
+
+  // Helper function to render star rating
+  const StarRating = () => {
+    const [hoverRating, setHoverRating] = useState<number | null>(null);
+    const currentRating = ratingQuery.data?.rating || 0;
+    const displayRating = hoverRating !== null ? hoverRating : currentRating;
+    const isDisabled = updateRatingMutation.isPending;
+
+    return (
+      <div className="flex items-center gap-1 px-2 py-1 border rounded-md">
+        {[1, 2, 3, 4, 5].map((rating) => (
+          <Star
+            key={rating}
+            className={
+              cn(`
+                h-4 w-4 cursor-pointer transition-colors
+
+                ${isDisabled ? 'cursor-not-allowed animate-pulse' : 'cursor-pointer'}
+                  
+
+                ${rating
+                  <= displayRating
+                  ? 'fill-yellow-400 text-yellow-400'
+                  : 'fill-none text-gray-300'
+                }
+                `)
+            }
+            onMouseEnter={() => setHoverRating(rating)}
+            onMouseLeave={() => setHoverRating(null)}
+            onClick={() => {
+              if (!updateRatingMutation.isPending) {
+                updateRatingMutation.mutate(rating);
+              }
+            }}
+          />
+        ))}
+      </div>
     );
   };
 
@@ -355,28 +504,46 @@ function DetailsForm() {
       <Card>
         <CardHeader>
           <div className='flex justify-between items-center'>
-            <div>
+            <div className="space-y-1.5">
               <CardTitle>Details Results</CardTitle>
               <CardDescription>Place information and metadata</CardDescription>
             </div>
             {placeDetailsQuery.data && (
-              <div className='flex gap-2'>
+              <div className='flex gap-2 items-center'>
+                {/* Rating Stars */}
+                {placeDetailsQuery.data.data?.id && <StarRating />}
+
+                {/* Favorite Button */}
+                <Button
+                  variant={favoriteStatusQuery.data?.isFavorite ? 'destructive' : 'outline'}
+                  size='sm'
+                  onClick={() => toggleFavoriteMutation.mutate()}
+                  disabled={!placeDetailsQuery.data.data?.id || toggleFavoriteMutation.isPending || favoriteStatusQuery.isLoading}
+                >
+                  {toggleFavoriteMutation.isPending ? (
+                    'Updating...'
+                  ) : favoriteStatusQuery.data?.isFavorite ? (
+                    'Unfavorite'
+                  ) : (
+                    'Favorite'
+                  )}
+                </Button>
+
+                {/* Photos Button */}
                 <Button
                   variant='outline'
                   size='sm'
                   onClick={() => {
                     router.push(
-                      `/admin/api-reference/places/photos?id=${
-                        placeDetailsQuery.data.data?.name?.replace(
-                          'places/',
-                          ''
-                        ) || placeId
-                      }`
+                      `/admin/api-reference/places/photos?id=${placeDetailsQuery.data.data?.id}`
                     );
                   }}
+                  disabled={!placeDetailsQuery.data.data?.id}
                 >
                   Get Photos
                 </Button>
+
+                {/* Clear Results Button */}
                 <Button
                   variant='outline'
                   size='sm'
@@ -530,7 +697,7 @@ function DetailsForm() {
                                 )}
                                 {renderDetailField(
                                   'Google Place ID',
-                                  placeDetailsQuery.data.data.name
+                                  placeDetailsQuery.data.data.id
                                 )}
                                 {renderDetailField(
                                   formatFieldName('PrimaryType'),
@@ -557,16 +724,15 @@ function DetailsForm() {
                                       {[1, 2, 3, 4, 5].map((star) => (
                                         <span
                                           key={`rating-star-${star}`}
-                                          className={`text-xl ${
-                                            (placeDetailsQuery.data.data
-                                              .rating || 0) >= star
-                                              ? 'text-yellow-400'
-                                              : (placeDetailsQuery.data.data
-                                                  .rating || 0) >=
-                                                star - 0.5
+                                          className={`text-xl ${(placeDetailsQuery.data.data
+                                            .rating || 0) >= star
+                                            ? 'text-yellow-400'
+                                            : (placeDetailsQuery.data.data
+                                              .rating || 0) >=
+                                              star - 0.5
                                               ? 'text-yellow-400/70'
                                               : 'text-gray-300'
-                                          }`}
+                                            }`}
                                         >
                                           ★
                                         </span>
@@ -587,7 +753,7 @@ function DetailsForm() {
                                   </span>
                                   <div className='text-right max-w-[60%]'>
                                     {placeDetailsQuery.data.data.priceLevel ===
-                                    null ? (
+                                      null ? (
                                       <span>Not specified</span>
                                     ) : (
                                       <span>
@@ -739,7 +905,7 @@ function DetailsForm() {
                             {/* Reviews section */}
                             {placeDetailsQuery.data.data.reviews &&
                               placeDetailsQuery.data.data.reviews.length >
-                                0 && (
+                              0 && (
                                 <div className='p-3 border rounded-md bg-muted/30'>
                                   <p className='text-sm font-medium mb-3'>
                                     Reviews:
@@ -756,11 +922,10 @@ function DetailsForm() {
                                               {[1, 2, 3, 4, 5].map((star) => (
                                                 <span
                                                   key={`review-star-${index}-${star}`}
-                                                  className={`text-xl ${
-                                                    review.rating >= star
-                                                      ? 'text-yellow-400'
-                                                      : 'text-gray-300'
-                                                  }`}
+                                                  className={`text-xl ${review.rating >= star
+                                                    ? 'text-yellow-400'
+                                                    : 'text-gray-300'
+                                                    }`}
                                                 >
                                                   ★
                                                 </span>

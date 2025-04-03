@@ -1,12 +1,11 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { inngest } from '@/inngest/client';
 import { prisma } from '@/lib/db';
 import { getUserId } from '@/services/user/get-user-id';
 import type { ErrorResponse } from '@/types/error-response';
 import { log } from '@/utils/log';
-import type { Favorite, Place } from '@prisma/client';
+import type { Favorite } from '@prisma/client';
 
 type FavoriteResponse = {
   message: string;
@@ -22,7 +21,7 @@ export async function POST(
 
     // Find the user by id
     const user = await prisma.user.findUnique({
-      where: { id: userId as string },
+      where: { id: userId },
     });
 
     if (!user) {
@@ -111,35 +110,16 @@ export async function POST(
   }
 }
 
-/**
- * GET endpoint to check if a place is favorited by the authenticated user
- *
- * @param request - Next.js request object containing search params with place ID
- * @returns NextResponse with:
- *  - 200: {isFavorite: boolean, place: Place, favorite: Favorite | null} if successful
- *  - 400: {error: string} if place ID missing
- *  - 401: {error: string} if unauthorized
- *  - 404: {error: string} if user not found
- *  - 500: {error: string} if server error
- */
-export async function GET(request: NextRequest): Promise<
-  NextResponse<
-    | {
-        isFavorite: boolean;
-        place?: Place;
-        favorite?: Favorite | null;
-        message?: string;
-      }
-    | ErrorResponse
-  >
-> {
-  const { userId } = await auth();
+type GetFavoriteResponse = {
+  isFavorite: boolean;
+};
 
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
+export async function GET(
+  request: NextRequest
+): Promise<NextResponse<GetFavoriteResponse | ErrorResponse>> {
   try {
+    const userId = await getUserId(request);
+
     // Get the place ID from the URL search params
     const searchParams = request.nextUrl.searchParams;
     const placeId = searchParams.get('id');
@@ -151,11 +131,9 @@ export async function GET(request: NextRequest): Promise<
       );
     }
 
-    log.debug('placeId', { placeId });
-
     // Find the user by id
     const user = await prisma.user.findUnique({
-      where: { id: userId as string },
+      where: { id: userId },
     });
 
     if (!user) {
@@ -170,10 +148,9 @@ export async function GET(request: NextRequest): Promise<
     if (!place) {
       return NextResponse.json(
         {
-          isFavorite: false,
-          message: 'Place not found',
+          error: 'Place not found',
         },
-        { status: 200 }
+        { status: 404 }
       );
     }
 
@@ -190,8 +167,6 @@ export async function GET(request: NextRequest): Promise<
     return NextResponse.json(
       {
         isFavorite: !!favorite,
-        place,
-        favorite,
       },
       { status: 200 }
     );
