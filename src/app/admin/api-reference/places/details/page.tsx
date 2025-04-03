@@ -259,10 +259,13 @@ function DetailsForm() {
     },
     onSuccess: (_, rating) => {
       // Update the rating query cache
-      queryClient.setQueryData(['rating', placeId], (oldData: { rating: number | null }) => ({
-        ...oldData,
-        rating: rating === oldData.rating ? null : rating,
-      }));
+      queryClient.setQueryData(
+        ['rating', placeId],
+        (oldData: { rating: number | null }) => ({
+          ...oldData,
+          rating: rating === oldData.rating ? null : rating,
+        })
+      );
 
       toast.success('Favorite status updated');
     },
@@ -375,24 +378,26 @@ function DetailsForm() {
     const isDisabled = updateRatingMutation.isPending;
 
     return (
-      <div className="flex items-center gap-1 px-2 py-1 border rounded-md">
+      <div className='flex items-center gap-1 px-2 py-1 border rounded-md'>
         {[1, 2, 3, 4, 5].map((rating) => (
           <Star
             key={rating}
-            className={
-              cn(`
+            className={cn(`
                 h-4 w-4 cursor-pointer transition-colors
 
-                ${isDisabled ? 'cursor-not-allowed animate-pulse' : 'cursor-pointer'}
+                ${
+                  isDisabled
+                    ? 'cursor-not-allowed animate-pulse'
+                    : 'cursor-pointer'
+                }
                   
 
-                ${rating
-                  <= displayRating
-                  ? 'fill-yellow-400 text-yellow-400'
-                  : 'fill-none text-gray-300'
+                ${
+                  rating <= displayRating
+                    ? 'fill-yellow-400 text-yellow-400'
+                    : 'fill-none text-gray-300'
                 }
-                `)
-            }
+                `)}
             onMouseEnter={() => setHoverRating(rating)}
             onMouseLeave={() => setHoverRating(null)}
             onClick={() => {
@@ -504,7 +509,7 @@ function DetailsForm() {
       <Card>
         <CardHeader>
           <div className='flex justify-between items-center'>
-            <div className="space-y-1.5">
+            <div className='space-y-1.5'>
               <CardTitle>Details Results</CardTitle>
               <CardDescription>Place information and metadata</CardDescription>
             </div>
@@ -515,18 +520,24 @@ function DetailsForm() {
 
                 {/* Favorite Button */}
                 <Button
-                  variant={favoriteStatusQuery.data?.isFavorite ? 'destructive' : 'outline'}
+                  variant={
+                    favoriteStatusQuery.data?.isFavorite
+                      ? 'destructive'
+                      : 'outline'
+                  }
                   size='sm'
                   onClick={() => toggleFavoriteMutation.mutate()}
-                  disabled={!placeDetailsQuery.data.data?.id || toggleFavoriteMutation.isPending || favoriteStatusQuery.isLoading}
+                  disabled={
+                    !placeDetailsQuery.data.data?.id ||
+                    toggleFavoriteMutation.isPending ||
+                    favoriteStatusQuery.isLoading
+                  }
                 >
-                  {toggleFavoriteMutation.isPending ? (
-                    'Updating...'
-                  ) : favoriteStatusQuery.data?.isFavorite ? (
-                    'Unfavorite'
-                  ) : (
-                    'Favorite'
-                  )}
+                  {toggleFavoriteMutation.isPending
+                    ? 'Updating...'
+                    : favoriteStatusQuery.data?.isFavorite
+                    ? 'Unfavorite'
+                    : 'Favorite'}
                 </Button>
 
                 {/* Photos Button */}
@@ -724,15 +735,16 @@ function DetailsForm() {
                                       {[1, 2, 3, 4, 5].map((star) => (
                                         <span
                                           key={`rating-star-${star}`}
-                                          className={`text-xl ${(placeDetailsQuery.data.data
-                                            .rating || 0) >= star
-                                            ? 'text-yellow-400'
-                                            : (placeDetailsQuery.data.data
-                                              .rating || 0) >=
-                                              star - 0.5
+                                          className={`text-xl ${
+                                            (placeDetailsQuery.data.data
+                                              .rating || 0) >= star
+                                              ? 'text-yellow-400'
+                                              : (placeDetailsQuery.data.data
+                                                  .rating || 0) >=
+                                                star - 0.5
                                               ? 'text-yellow-400/70'
                                               : 'text-gray-300'
-                                            }`}
+                                          }`}
                                         >
                                           ★
                                         </span>
@@ -753,7 +765,7 @@ function DetailsForm() {
                                   </span>
                                   <div className='text-right max-w-[60%]'>
                                     {placeDetailsQuery.data.data.priceLevel ===
-                                      null ? (
+                                    null ? (
                                       <span>Not specified</span>
                                     ) : (
                                       <span>
@@ -905,7 +917,7 @@ function DetailsForm() {
                             {/* Reviews section */}
                             {placeDetailsQuery.data.data.reviews &&
                               placeDetailsQuery.data.data.reviews.length >
-                              0 && (
+                                0 && (
                                 <div className='p-3 border rounded-md bg-muted/30'>
                                   <p className='text-sm font-medium mb-3'>
                                     Reviews:
@@ -922,10 +934,11 @@ function DetailsForm() {
                                               {[1, 2, 3, 4, 5].map((star) => (
                                                 <span
                                                   key={`review-star-${index}-${star}`}
-                                                  className={`text-xl ${review.rating >= star
-                                                    ? 'text-yellow-400'
-                                                    : 'text-gray-300'
-                                                    }`}
+                                                  className={`text-xl ${
+                                                    review.rating >= star
+                                                      ? 'text-yellow-400'
+                                                      : 'text-gray-300'
+                                                  }`}
                                                 >
                                                   ★
                                                 </span>
