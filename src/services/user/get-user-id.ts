@@ -55,7 +55,10 @@ export async function getUserId(request: NextRequest) {
       );
     }
   } catch (error) {
-    log.error('Error in getUserId:', error);
+    log.error('Error in getUserId:', {
+      error,
+      request,
+    });
     throw error;
   }
 }

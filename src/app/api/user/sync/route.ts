@@ -33,7 +33,13 @@ export async function POST(
   request: NextRequest
 ): Promise<NextResponse<UserResponse | ErrorResponse>> {
   try {
+    log.info('Syncing user', {
+      request,
+    });
+
     const userId = await getUserId(request);
+
+    log.info('Syncing user', { userId });
 
     // check if user exists in our database
     const dbUser = await prisma.user.findUnique({
@@ -43,6 +49,8 @@ export async function POST(
         ratings: true,
       },
     });
+
+    log.info('User found in database', { dbUser });
 
     // Dont create one if they dont exist, webhook should handle that
     // instead of creating a new user, we should just return an error
@@ -57,6 +65,9 @@ export async function POST(
     const params = await request.json();
     const favorites = params?.favorites;
     const ratings = params?.ratings;
+
+    log.info('Favorites', { favorites });
+    log.info('Ratings', { ratings });
 
     // Track what was processed
     const result = {
