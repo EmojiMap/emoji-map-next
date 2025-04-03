@@ -4,7 +4,7 @@ import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronDownIcon, ChevronUpIcon, Star } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -30,6 +30,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useToggleFavoriteMutation } from '@/hooks/use-toggle-favorite-mutation/use-toggle-favorite-mutation';
+import { useUpdateRatingsMutation } from '@/hooks/use-update-ratings-mutation/use-update-ratings-mutation';
 import { cn } from '@/lib/utils';
 import type { DetailResponse } from '@/types/details';
 
@@ -206,90 +208,53 @@ function DetailsForm() {
     enabled: !!placeId && !!placeDetailsQuery.data?.data?.id,
   });
 
-  // Mutation for toggling favorite status
-  const toggleFavoriteMutation = useMutation({
-    mutationFn: async () => {
-      if (!placeId) throw new Error('No place ID');
-      const token = await getToken();
+  const { mutate: toggleFavorite, isPending: isTogglingFavorite } =
+    useToggleFavoriteMutation({
+      onSuccess: () => {
+        let oldStatus;
+        // Update the favorite status query cache
+        queryClient.setQueryData(
+          ['favoriteStatus', placeId],
+          (oldData: { isFavorite: boolean }) => {
+            oldStatus = oldData.isFavorite;
+            return {
+              ...oldData,
+              isFavorite: !oldData.isFavorite,
+            };
+          }
+        );
 
-      const response = await fetch('/api/places/favorite', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ placeId }),
-      });
+        // Invalidate user query
+        queryClient.invalidateQueries({ queryKey: ['user'] });
 
-      if (!response.ok) {
-        throw new Error('Failed to toggle favorite');
-      }
+        toast.success(`Place ${oldStatus ? 'unfavorited' : 'favorited'}`);
+      },
+      onError: (error) => {
+        toast.error(`Failed to toggle favorite: ${error.message}`);
+      },
+    });
 
-      return response.json();
-    },
-    onSuccess: () => {
-      let oldStatus;
-      // Update the favorite status query cache
-      queryClient.setQueryData(
-        ['favoriteStatus', placeId],
-        (oldData: { isFavorite: boolean }) => {
-          oldStatus = oldData.isFavorite;
-          return {
+  const { mutate: updateRating, isPending: isUpdatingRating } =
+    useUpdateRatingsMutation({
+      onSuccess: ({ rating }) => {
+        // Update the rating query cache
+        queryClient.setQueryData(
+          ['rating', placeId],
+          (oldData: { rating: number | null }) => ({
             ...oldData,
-            isFavorite: !oldData.isFavorite,
-          };
-        }
-      );
+            rating: rating === oldData.rating ? null : rating,
+          })
+        );
 
-      // Invalidate user query
-      queryClient.invalidateQueries({ queryKey: ['user'] });
+        // Invalidate user query
+        queryClient.invalidateQueries({ queryKey: ['user'] });
 
-      toast.success(`Place ${oldStatus ? 'unfavorited' : 'favorited'}`);
-    },
-    onError: (error) => {
-      toast.error(`Failed to update favorite: ${error.message}`);
-    },
-  });
-
-  // Mutation for updating rating
-  const updateRatingMutation = useMutation({
-    mutationFn: async (rating: number) => {
-      if (!placeId) throw new Error('No place ID');
-      const token = await getToken();
-      const response = await fetch('/api/places/rating', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ placeId, rating }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to toggle favorite');
-      }
-
-      return response.json();
-    },
-    onSuccess: (_, rating) => {
-      // Update the rating query cache
-      queryClient.setQueryData(
-        ['rating', placeId],
-        (oldData: { rating: number | null }) => ({
-          ...oldData,
-          rating: rating === oldData.rating ? null : rating,
-        })
-      );
-
-      // Invalidate user query
-      queryClient.invalidateQueries({ queryKey: ['user'] });
-
-      toast.success(`Place rating updated`);
-    },
-    onError: (error) => {
-      toast.error(`Failed to update rating: ${error.message}`);
-    },
-  });
+        toast.success(`Place rating updated`);
+      },
+      onError: (error) => {
+        toast.error(`Failed to update rating: ${error.message}`);
+      },
+    });
 
   // Function to clear place details query data
   const handleClearPlaceDetails = () => {
@@ -392,7 +357,7 @@ function DetailsForm() {
     const [hoverRating, setHoverRating] = useState<number | null>(null);
     const currentRating = ratingQuery.data?.rating || 0;
     const displayRating = hoverRating !== null ? hoverRating : currentRating;
-    const isDisabled = updateRatingMutation.isPending;
+    const isDisabled = isUpdatingRating;
 
     return (
       <div className='flex items-center gap-1 px-2 py-1 border rounded-md'>
@@ -415,8 +380,11 @@ function DetailsForm() {
             onMouseEnter={() => setHoverRating(rating)}
             onMouseLeave={() => setHoverRating(null)}
             onClick={() => {
-              if (!updateRatingMutation.isPending) {
-                updateRatingMutation.mutate(rating);
+              if (!isUpdatingRating) {
+                updateRating({
+                  placeId,
+                  rating,
+                });
               }
             }}
           />
@@ -540,14 +508,16 @@ function DetailsForm() {
                       : 'outline'
                   }
                   size='sm'
-                  onClick={() => toggleFavoriteMutation.mutate()}
+                  onClick={() =>
+                    toggleFavorite({ placeId: placeDetailsQuery.data.data?.id })
+                  }
                   disabled={
                     !placeDetailsQuery.data.data?.id ||
-                    toggleFavoriteMutation.isPending ||
+                    isTogglingFavorite ||
                     favoriteStatusQuery.isLoading
                   }
                 >
-                  {toggleFavoriteMutation.isPending
+                  {isTogglingFavorite
                     ? 'Updating...'
                     : favoriteStatusQuery.data?.isFavorite
                     ? 'Unfavorite'
