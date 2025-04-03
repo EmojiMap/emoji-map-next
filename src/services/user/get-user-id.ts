@@ -51,6 +51,8 @@ export async function getUserId(request: NextRequest) {
       });
 
       const authResult = await client.authenticateRequest(request);
+      const auth = authResult.toAuth();
+      log.info('auth', { auth });
       const userId = authResult.toAuth()?.userId;
 
       if (!userId) {
