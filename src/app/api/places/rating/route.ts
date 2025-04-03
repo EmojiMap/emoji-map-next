@@ -128,15 +128,12 @@ export async function POST(
       log.debug('[RATING] Prior rating exists');
 
       // If rating is not provided, remove the rating
-      if (isNull(userRating) || isUndefined(userRating)) {
-        log.debug('[RATING] Rating is being removed');
-        rating = await prisma.rating.delete({
-          where: { id: existingRating.id },
-        });
-        action = 'removed';
-      }
-      // If rating is being updated to the same rating, delete the rating
-      else if (existingRating.rating === userRating) {
+      if (
+        isNull(userRating) ||
+        isUndefined(userRating) ||
+        userRating === 0 ||
+        existingRating.rating === userRating
+      ) {
         log.debug('[RATING] Rating is being removed');
         rating = await prisma.rating.delete({
           where: { id: existingRating.id },
