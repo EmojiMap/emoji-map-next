@@ -1,8 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { isNull, isUndefined } from 'lodash-es';
-import { inngest } from '@/inngest/client';
 import { prisma } from '@/lib/db';
+import { getPlaceDetailsWithCache } from '@/services/places/details/get-place-details-with-cache/get-place-details-with-cache';
 import { getUserId } from '@/services/user/get-user-id';
 import type { ErrorResponse } from '@/types/error-response';
 import { log } from '@/utils/log';
@@ -26,7 +26,7 @@ export async function POST(
     });
 
     if (!user) {
-      log.error('User not found', { userId });
+      log.error('[RATING] User not found', { userId });
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
@@ -34,7 +34,7 @@ export async function POST(
     const placeId: string | undefined = params?.placeId;
 
     if (!placeId) {
-      log.error('Place ID is required');
+      log.error('[RATING] Place ID is required');
       return NextResponse.json(
         { error: 'Place ID is required' },
         { status: 400 }
@@ -45,23 +45,68 @@ export async function POST(
 
     if (!userRating) {
       log.error(
-        'Rating not provided, if exiting rating found, it will be removed'
+        '[RATING] Rating not provided, if exiting rating found, it will be removed'
       );
     }
 
     // Check if this place exists in the database
-    const place = await prisma.place.findUnique({
+    let place = await prisma.place.findUnique({
       where: { id: placeId },
     });
 
     // If place doesn't exist, create it
     if (!place) {
-      log.debug('Place not found, creating it');
-      await inngest.send({
-        name: 'places/get-details',
+      log.debug('[RATING] Place not found, creating it');
+      const details = await getPlaceDetailsWithCache({ id: placeId });
+
+      await prisma.place.create({
         data: {
-          id: placeId,
+          id: details.data.id,
+          name: details.data.displayName,
+          latitude: details.data.location.latitude,
+          longitude: details.data.location.longitude,
+          address: details.data.address,
+          merchantId: null,
+          allowsDogs: details.data.allowsDogs,
+          delivery: details.data.delivery,
+          editorialSummary: details.data.editorialSummary,
+          generativeSummary: details.data.generativeSummary,
+          goodForChildren: details.data.goodForChildren,
+          dineIn: details.data.dineIn,
+          goodForGroups: details.data.goodForGroups,
+          isFree: details.data.isFree,
+          liveMusic: details.data.liveMusic,
+          menuForChildren: details.data.menuForChildren,
+          outdoorSeating: details.data.outdoorSeating,
+          acceptsCashOnly: details.data.acceptsCashOnly,
+          acceptsCreditCards: details.data.acceptsCreditCards,
+          acceptsDebitCards: details.data.acceptsDebitCards,
+          priceLevel: details.data.priceLevel,
+          primaryTypeDisplayName: details.data.primaryTypeDisplayName,
+          googleRating: details.data.rating,
+          servesCoffee: details.data.servesCoffee,
+          servesDessert: details.data.servesDessert,
+          takeout: details.data.takeout,
+          restroom: details.data.restroom,
+          openNow: details.data.openNow,
+          userRatingCount: details.data.userRatingCount,
         },
+      });
+
+      log.debug('[RATING] Place created');
+
+      if (details.data.reviews.length > 0) {
+        log.debug('[RATING] Creating reviews for place');
+        await prisma.review.createMany({
+          data: details.data.reviews.map((review) => ({
+            ...review,
+            placeId,
+          })),
+        });
+      }
+
+      place = await prisma.place.findUnique({
+        where: { id: placeId },
       });
     }
 
@@ -80,11 +125,11 @@ export async function POST(
 
     // If rating exists, check if the rating is being updated or removed
     if (existingRating) {
-      log.debug('Prior rating exists');
+      log.debug('[RATING] Prior rating exists');
 
       // If rating is not provided, remove the rating
-      if (!userRating || isNull(userRating) || isUndefined(userRating)) {
-        log.debug('Rating is being removed');
+      if (isNull(userRating) || isUndefined(userRating)) {
+        log.debug('[RATING] Rating is being removed');
         rating = await prisma.rating.delete({
           where: { id: existingRating.id },
         });
@@ -92,7 +137,7 @@ export async function POST(
       }
       // If rating is being updated to the same rating, delete the rating
       else if (existingRating.rating === userRating) {
-        log.debug('Rating is being removed');
+        log.debug('[RATING] Rating is being removed');
         rating = await prisma.rating.delete({
           where: { id: existingRating.id },
         });
@@ -100,7 +145,7 @@ export async function POST(
       }
       // If rating is being updated to a different rating, update the rating
       else {
-        log.debug('Rating is being updated');
+        log.debug('[RATING] Rating is being updated');
         rating = await prisma.rating.update({
           where: { id: existingRating.id },
           data: { rating: userRating },
@@ -110,7 +155,7 @@ export async function POST(
     }
     // If rating doesn't exist, create it
     else {
-      log.debug('Rating does not exist, creating it');
+      log.debug('[RATING] Rating does not exist, creating it');
 
       // If rating doesn't exist, create it (toggle on)
       if (!userRating) {
@@ -145,7 +190,7 @@ export async function POST(
       { status: 200 }
     );
   } catch (error) {
-    log.error('Failed to process rating', { error });
+    log.error('[RATING] Failed to process rating', { error });
     return NextResponse.json(
       { error: 'Failed to process rating' },
       { status: 500 }
@@ -166,6 +211,7 @@ export async function GET(
     const placeId = request.nextUrl.searchParams.get('id');
 
     if (!placeId) {
+      log.error('[RATING] Place ID is required');
       return NextResponse.json(
         { error: 'Place ID is required' },
         { status: 400 }
@@ -178,6 +224,7 @@ export async function GET(
     });
 
     if (!user) {
+      log.error('[RATING] User not found');
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
@@ -187,6 +234,7 @@ export async function GET(
     });
 
     if (!place) {
+      log.error('[RATING] Place not found');
       return NextResponse.json({ error: 'Place not found' }, { status: 404 });
     }
 
@@ -205,7 +253,7 @@ export async function GET(
       { status: 200 }
     );
   } catch (error) {
-    log.error('Failed to get rating', { error });
+    log.error('[RATING] Failed to get rating', { error });
     return NextResponse.json(
       { error: 'Failed to get rating' },
       { status: 500 }

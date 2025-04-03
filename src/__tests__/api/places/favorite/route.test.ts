@@ -1,9 +1,10 @@
 import { NextRequest } from 'next/server';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { GET, POST } from '@/app/api/places/favorite/route';
-import { inngest } from '@/inngest/client';
 import { prisma } from '@/lib/db';
+import { getPlaceDetailsWithCache } from '@/services/places/details/get-place-details-with-cache/get-place-details-with-cache';
 import { getUserId } from '@/services/user/get-user-id';
+import type { DetailResponse } from '@/types/details';
 import { log } from '@/utils/log';
 import type { Favorite, Place, User } from '@prisma/client';
 
@@ -22,6 +23,13 @@ vi.mock('@/services/user/get-user-id', () => ({
   getUserId: vi.fn(),
 }));
 
+vi.mock(
+  '@/services/places/details/get-place-details-with-cache/get-place-details-with-cache',
+  () => ({
+    getPlaceDetailsWithCache: vi.fn(),
+  })
+);
+
 vi.mock('@/lib/db', () => ({
   prisma: {
     user: {
@@ -36,13 +44,9 @@ vi.mock('@/lib/db', () => ({
       create: vi.fn(),
       delete: vi.fn(),
     },
-  },
-}));
-
-// Mock inngest
-vi.mock('@/inngest/client', () => ({
-  inngest: {
-    send: vi.fn(),
+    review: {
+      createMany: vi.fn(),
+    },
   },
 }));
 
@@ -111,6 +115,63 @@ describe('Favorite API Routes', () => {
     placeId: mockPlaceId,
     createdAt: mockDate,
     updatedAt: mockDate,
+  };
+
+  const mockPlaceDetails: DetailResponse = {
+    data: {
+      id: mockPlaceId,
+      name: 'Test Place',
+      displayName: 'Test Place',
+      latitude: 37.7749,
+      longitude: -122.4194,
+      location: {
+        latitude: 37.7749,
+        longitude: -122.4194,
+      },
+      address: '123 Test St',
+      merchantId: null,
+      allowsDogs: false,
+      delivery: true,
+      editorialSummary: 'A great place to eat',
+      generativeSummary: 'This is a generated summary',
+      goodForChildren: true,
+      dineIn: true,
+      goodForGroups: true,
+      isFree: false,
+      liveMusic: false,
+      menuForChildren: true,
+      outdoorSeating: true,
+      paymentOptions: {
+        acceptsCashOnly: false,
+        acceptsCreditCards: true,
+        acceptsDebitCards: true,
+      },
+      acceptsCashOnly: false,
+      acceptsCreditCards: true,
+      acceptsDebitCards: true,
+      priceLevel: 2,
+      primaryTypeDisplayName: 'Restaurant',
+      rating: 4.5,
+      googleRating: 4.5,
+      servesCoffee: true,
+      servesDessert: true,
+      takeout: true,
+      restroom: true,
+      openNow: true,
+      userRatingCount: 100,
+      reviews: [
+        {
+          placeId: mockPlaceId,
+          relativePublishTimeDescription: '1 month ago',
+          rating: 5,
+          text: 'Great place!',
+          id: '',
+          status: 'DEFAULT',
+        },
+      ],
+    },
+    cacheHit: true,
+    count: 1,
   };
 
   beforeEach(() => {
@@ -197,12 +258,25 @@ describe('Favorite API Routes', () => {
       expect(body).toEqual({ error: 'User not found' });
     });
 
-    it('should trigger place details fetch if place does not exist and add it to favorites', async () => {
+    it('should fetch place details, create place with reviews if it does not exist, and add it to favorites', async () => {
       // Mock user found
       vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(mockUser);
 
-      // Mock place not found
-      vi.mocked(prisma.place.findUnique).mockResolvedValueOnce(null);
+      // Mock place not found initially, but found after creation
+      vi.mocked(prisma.place.findUnique)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(mockPlace);
+
+      // Mock place details fetch
+      vi.mocked(getPlaceDetailsWithCache).mockResolvedValueOnce(
+        mockPlaceDetails
+      );
+
+      // Mock place creation
+      vi.mocked(prisma.place.create).mockResolvedValueOnce(mockPlace);
+
+      // Mock review creation
+      vi.mocked(prisma.review.createMany).mockResolvedValueOnce({ count: 1 });
 
       // Mock no existing favorite
       vi.mocked(prisma.favorite.findUnique).mockResolvedValueOnce(null);
@@ -219,11 +293,47 @@ describe('Favorite API Routes', () => {
       const body = await getResponseBody(response);
 
       expect(getUserId).toHaveBeenCalledWith(request);
-      expect(inngest.send).toHaveBeenCalledWith({
-        name: 'places/get-details',
+      expect(getPlaceDetailsWithCache).toHaveBeenCalledWith({
+        id: mockPlaceId,
+      });
+      expect(prisma.place.create).toHaveBeenCalledWith({
         data: {
-          id: mockPlaceId,
+          id: mockPlaceDetails.data.id,
+          name: mockPlaceDetails.data.displayName,
+          latitude: mockPlaceDetails.data.location.latitude,
+          longitude: mockPlaceDetails.data.location.longitude,
+          address: mockPlaceDetails.data.address,
+          merchantId: null,
+          allowsDogs: mockPlaceDetails.data.allowsDogs,
+          delivery: mockPlaceDetails.data.delivery,
+          editorialSummary: mockPlaceDetails.data.editorialSummary,
+          generativeSummary: mockPlaceDetails.data.generativeSummary,
+          goodForChildren: mockPlaceDetails.data.goodForChildren,
+          dineIn: mockPlaceDetails.data.dineIn,
+          goodForGroups: mockPlaceDetails.data.goodForGroups,
+          isFree: mockPlaceDetails.data.isFree,
+          liveMusic: mockPlaceDetails.data.liveMusic,
+          menuForChildren: mockPlaceDetails.data.menuForChildren,
+          outdoorSeating: mockPlaceDetails.data.outdoorSeating,
+          acceptsCashOnly: mockPlaceDetails.data.acceptsCashOnly,
+          acceptsCreditCards: mockPlaceDetails.data.acceptsCreditCards,
+          acceptsDebitCards: mockPlaceDetails.data.acceptsDebitCards,
+          priceLevel: mockPlaceDetails.data.priceLevel,
+          primaryTypeDisplayName: mockPlaceDetails.data.primaryTypeDisplayName,
+          googleRating: mockPlaceDetails.data.rating,
+          servesCoffee: mockPlaceDetails.data.servesCoffee,
+          servesDessert: mockPlaceDetails.data.servesDessert,
+          takeout: mockPlaceDetails.data.takeout,
+          restroom: mockPlaceDetails.data.restroom,
+          openNow: mockPlaceDetails.data.openNow,
+          userRatingCount: mockPlaceDetails.data.userRatingCount,
         },
+      });
+      expect(prisma.review.createMany).toHaveBeenCalledWith({
+        data: mockPlaceDetails.data.reviews.map((review) => ({
+          ...review,
+          placeId: mockPlaceId,
+        })),
       });
       expect(prisma.favorite.create).toHaveBeenCalledWith({
         data: {

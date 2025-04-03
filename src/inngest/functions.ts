@@ -1,5 +1,4 @@
 import { prisma } from '@/lib/db';
-import { getPlaceDetailsWithCache } from '@/services/places/details/get-place-details-with-cache/get-place-details-with-cache';
 import { inngest } from './client';
 
 // Creates place in DB
@@ -61,8 +60,7 @@ export const createPlace = inngest.createFunction(
       return { message: `Place ${id} not created` };
     }
 
-    // TODO: create reviews
-    if (details.data.reviews) {
+    if (details.data.reviews.length > 0) {
       await prisma.review.createMany({
         data: details.data.reviews.map((review) => ({
           ...review,
@@ -70,39 +68,6 @@ export const createPlace = inngest.createFunction(
         })),
       });
     }
-
-    return { message: `Place ${id} created` };
-  }
-);
-
-// Gets from Google API &
-// calls createPlace function
-export const getPlaceDetails = inngest.createFunction(
-  { id: 'places/get-details' },
-  { event: 'places/get-details' },
-  async ({ event }) => {
-    const { id } = event.data;
-
-    // Double check if place exists in DB
-    const place = await prisma.place.findUnique({
-      where: {
-        id: id,
-      },
-    });
-
-    if (place) {
-      return { message: `Place ${id} already exists` };
-    }
-
-    const details = await getPlaceDetailsWithCache({ id });
-
-    await inngest.send({
-      name: 'places/create',
-      data: {
-        id,
-        details,
-      },
-    });
 
     return { message: `Place ${id} created` };
   }

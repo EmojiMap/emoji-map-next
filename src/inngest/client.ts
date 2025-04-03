@@ -8,15 +8,8 @@ type PlaceCreate = {
   };
 };
 
-type PlaceGetDetails = {
-  data: {
-    id: string;
-  };
-};
-
 type Events = {
   'places/create': PlaceCreate;
-  'places/get-details': PlaceGetDetails;
 };
 
 export const inngest = new Inngest({

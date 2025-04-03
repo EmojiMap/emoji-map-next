@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { inngest } from '@/inngest/client';
 import { prisma } from '@/lib/db';
+import { getPlaceDetailsWithCache } from '@/services/places/details/get-place-details-with-cache/get-place-details-with-cache';
 import { getUserId } from '@/services/user/get-user-id';
 import type { ErrorResponse } from '@/types/error-response';
 import { log } from '@/utils/log';
@@ -25,7 +25,7 @@ export async function POST(
     });
 
     if (!user) {
-      log.error('User not found', { userId });
+      log.error('[FAVORITE] User not found', { userId });
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
@@ -33,7 +33,7 @@ export async function POST(
     const placeId = params?.placeId;
 
     if (!placeId) {
-      log.error('Place ID is required');
+      log.error('[FAVORITE] Place ID is required');
       return NextResponse.json(
         { error: 'Place ID is required' },
         { status: 400 }
@@ -41,18 +41,64 @@ export async function POST(
     }
 
     // Check if this place exists in the database
-    const place = await prisma.place.findUnique({
+    let place = await prisma.place.findUnique({
       where: { id: placeId },
     });
 
     // If place doesn't exist, create it
     if (!place) {
-      log.debug('Place not found, creating it');
-      await inngest.send({
-        name: 'places/get-details',
+      log.debug('[FAVORITE] Place not found, creating it');
+
+      const details = await getPlaceDetailsWithCache({ id: placeId });
+
+      await prisma.place.create({
         data: {
-          id: placeId,
+          id: details.data.id,
+          name: details.data.displayName,
+          latitude: details.data.location.latitude,
+          longitude: details.data.location.longitude,
+          address: details.data.address,
+          merchantId: null,
+          allowsDogs: details.data.allowsDogs,
+          delivery: details.data.delivery,
+          editorialSummary: details.data.editorialSummary,
+          generativeSummary: details.data.generativeSummary,
+          goodForChildren: details.data.goodForChildren,
+          dineIn: details.data.dineIn,
+          goodForGroups: details.data.goodForGroups,
+          isFree: details.data.isFree,
+          liveMusic: details.data.liveMusic,
+          menuForChildren: details.data.menuForChildren,
+          outdoorSeating: details.data.outdoorSeating,
+          acceptsCashOnly: details.data.acceptsCashOnly,
+          acceptsCreditCards: details.data.acceptsCreditCards,
+          acceptsDebitCards: details.data.acceptsDebitCards,
+          priceLevel: details.data.priceLevel,
+          primaryTypeDisplayName: details.data.primaryTypeDisplayName,
+          googleRating: details.data.rating,
+          servesCoffee: details.data.servesCoffee,
+          servesDessert: details.data.servesDessert,
+          takeout: details.data.takeout,
+          restroom: details.data.restroom,
+          openNow: details.data.openNow,
+          userRatingCount: details.data.userRatingCount,
         },
+      });
+
+      log.debug('[FAVORITE] Place created');
+
+      if (details.data.reviews.length > 0) {
+        log.debug('[FAVORITE] Creating reviews for place');
+        await prisma.review.createMany({
+          data: details.data.reviews.map((review) => ({
+            ...review,
+            placeId,
+          })),
+        });
+      }
+
+      place = await prisma.place.findUnique({
+        where: { id: placeId },
       });
     }
 
@@ -71,7 +117,7 @@ export async function POST(
 
     // If favorite exists, remove it (toggle off)
     if (existingFavorite) {
-      log.debug('Favorite exists, removing it');
+      log.debug('[FAVORITE] Favorite exists, removing it');
       await prisma.favorite.delete({
         where: {
           id: existingFavorite.id,
@@ -82,7 +128,7 @@ export async function POST(
     }
     // If favorite doesn't exist, create it (toggle on)
     else {
-      log.debug('Favorite does not exist, creating it');
+      log.debug('[FAVORITE] Favorite does not exist, creating it');
       favorite = await prisma.favorite.create({
         data: {
           userId: user.id,
@@ -102,7 +148,7 @@ export async function POST(
       { status: 200 }
     );
   } catch (error) {
-    log.error('Failed to process favorite', { error });
+    log.error('[FAVORITE] Failed to process favorite', { error });
     return NextResponse.json(
       { error: 'Failed to process favorite' },
       { status: 500 }
@@ -125,6 +171,7 @@ export async function GET(
     const placeId = searchParams.get('id');
 
     if (!placeId) {
+      log.error('[FAVORITE] Place ID is required in query params');
       return NextResponse.json(
         { error: 'Place ID is required in query params' },
         { status: 400 }
@@ -137,6 +184,7 @@ export async function GET(
     });
 
     if (!user) {
+      log.error('[FAVORITE] User not found', { userId });
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
@@ -146,6 +194,7 @@ export async function GET(
     });
 
     if (!place) {
+      log.error('[FAVORITE] Place not found');
       return NextResponse.json(
         {
           error: 'Place not found',
@@ -171,7 +220,7 @@ export async function GET(
       { status: 200 }
     );
   } catch (error) {
-    log.error('Failed to check favorite status', { error });
+    log.error('[FAVORITE] Failed to check favorite status', { error });
     return NextResponse.json(
       { error: 'Failed to check favorite status' },
       { status: 500 }
