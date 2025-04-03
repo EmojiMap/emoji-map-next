@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { POST } from '@/app/api/places/rating/route';
+import { inngest } from '@/inngest/client';
 import { prisma } from '@/lib/db';
 import { getUserId } from '@/services/user/get-user-id';
 import type { User, Place, Rating } from '@prisma/client';
@@ -28,6 +29,13 @@ vi.mock('@/lib/db', () => ({
 // Mock getUserId service
 vi.mock('@/services/user/get-user-id', () => ({
   getUserId: vi.fn(),
+}));
+
+// Mock inngest
+vi.mock('@/inngest/client', () => ({
+  inngest: {
+    send: vi.fn(),
+  },
 }));
 
 // Mock NextRequest
@@ -71,6 +79,61 @@ vi.mock('@/utils/log', () => ({
 describe('Rating API Routes', () => {
   // Fixed mock date for all tests
   const FIXED_DATE = new Date('2023-01-01T12:00:00Z');
+
+  // Mock data
+  const mockPlace: Place = {
+    id: 'place_123',
+    name: 'Test Place',
+    latitude: 37.7749,
+    longitude: -122.4194,
+    address: '123 Test St',
+    merchantId: null,
+    allowsDogs: false,
+    delivery: true,
+    editorialSummary: 'A great place to eat',
+    generativeSummary: 'This is a generated summary',
+    goodForChildren: true,
+    dineIn: true,
+    goodForGroups: true,
+    isFree: false,
+    liveMusic: false,
+    menuForChildren: true,
+    outdoorSeating: true,
+    acceptsCashOnly: false,
+    acceptsCreditCards: true,
+    acceptsDebitCards: true,
+    priceLevel: 2,
+    primaryTypeDisplayName: 'Restaurant',
+    googleRating: 4.5,
+    servesCoffee: true,
+    servesDessert: true,
+    takeout: true,
+    restroom: true,
+    openNow: true,
+    userRatingCount: 100,
+    createdAt: FIXED_DATE,
+    updatedAt: FIXED_DATE,
+  };
+
+  const mockUser: User = {
+    id: 'user_123',
+    email: 'test@example.com',
+    firstName: 'Test',
+    lastName: 'User',
+    username: 'testuser',
+    imageUrl: 'https://example.com/image.jpg',
+    createdAt: FIXED_DATE,
+    updatedAt: FIXED_DATE,
+  };
+
+  const createMockRating = (rating: number): Rating => ({
+    id: 'rating_123',
+    userId: 'user_123',
+    placeId: 'place_123',
+    rating,
+    createdAt: FIXED_DATE,
+    updatedAt: FIXED_DATE,
+  });
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -116,16 +179,6 @@ describe('Rating API Routes', () => {
       ) as unknown as NextRequest;
 
       // Mock user found
-      const mockUser: User = {
-        id: 'user_123',
-        email: 'test@example.com',
-        firstName: 'Test',
-        lastName: 'User',
-        username: 'testuser',
-        imageUrl: 'https://example.com/image.jpg',
-        createdAt: FIXED_DATE,
-        updatedAt: FIXED_DATE,
-      };
       vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser);
 
       await POST(mockRequest);
@@ -147,30 +200,9 @@ describe('Rating API Routes', () => {
       ) as unknown as NextRequest;
 
       // Mock user found
-      const mockUser: User = {
-        id: 'user_123',
-        email: 'test@example.com',
-        firstName: 'Test',
-        lastName: 'User',
-        username: 'testuser',
-        imageUrl: 'https://example.com/image.jpg',
-        createdAt: FIXED_DATE,
-        updatedAt: FIXED_DATE,
-      };
       vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser);
 
       // Mock place found
-      const mockPlace: Place = {
-        id: 'place_123',
-        name: null,
-        description: null,
-        latitude: null,
-        longitude: null,
-        address: null,
-        merchantId: null,
-        createdAt: FIXED_DATE,
-        updatedAt: FIXED_DATE,
-      };
       vi.mocked(prisma.place.findUnique).mockResolvedValue(mockPlace);
 
       // Mock no existing rating found
@@ -195,41 +227,13 @@ describe('Rating API Routes', () => {
       ) as unknown as NextRequest;
 
       // Mock user found
-      const mockUser: User = {
-        id: 'user_123',
-        email: 'test@example.com',
-        firstName: 'Test',
-        lastName: 'User',
-        username: 'testuser',
-        imageUrl: 'https://example.com/image.jpg',
-        createdAt: FIXED_DATE,
-        updatedAt: FIXED_DATE,
-      };
       vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser);
 
       // Mock place found
-      const mockPlace: Place = {
-        id: 'place_123',
-        name: null,
-        description: null,
-        latitude: null,
-        longitude: null,
-        address: null,
-        merchantId: null,
-        createdAt: FIXED_DATE,
-        updatedAt: FIXED_DATE,
-      };
       vi.mocked(prisma.place.findUnique).mockResolvedValue(mockPlace);
 
       // Mock existing rating found
-      const existingRating: Rating = {
-        id: 'rating_123',
-        userId: 'user_123',
-        placeId: 'place_123',
-        rating: 4,
-        createdAt: FIXED_DATE,
-        updatedAt: FIXED_DATE,
-      };
+      const existingRating = createMockRating(4);
       vi.mocked(prisma.rating.findUnique).mockResolvedValue(existingRating);
 
       // Mock rating deletion (since no rating is provided, it should delete existing)
@@ -244,7 +248,6 @@ describe('Rating API Routes', () => {
       expect(NextResponse.json).toHaveBeenCalledWith(
         {
           message: 'Rating removed',
-          place: mockPlace,
           rating: existingRating,
           action: 'removed',
         },
@@ -277,7 +280,7 @@ describe('Rating API Routes', () => {
       );
     });
 
-    it('should create a new place if it does not exist', async () => {
+    it('should create a new rating and trigger place details fetch if place does not exist', async () => {
       const mockRequest = new MockNextRequest(
         {
           placeId: 'place_123',
@@ -289,47 +292,16 @@ describe('Rating API Routes', () => {
       ) as unknown as NextRequest;
 
       // Mock user found
-      const mockUser: User = {
-        id: 'user_123',
-        email: 'test@example.com',
-        firstName: 'Test',
-        lastName: 'User',
-        username: 'testuser',
-        imageUrl: 'https://example.com/image.jpg',
-        createdAt: FIXED_DATE,
-        updatedAt: FIXED_DATE,
-      };
       vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser);
 
       // Mock place not found
       vi.mocked(prisma.place.findUnique).mockResolvedValue(null);
 
-      // Mock place creation
-      const mockPlace: Place = {
-        id: 'place_123',
-        name: null,
-        description: null,
-        latitude: null,
-        longitude: null,
-        address: null,
-        merchantId: null,
-        createdAt: FIXED_DATE,
-        updatedAt: FIXED_DATE,
-      };
-      vi.mocked(prisma.place.create).mockResolvedValue(mockPlace);
-
       // Mock rating not found
       vi.mocked(prisma.rating.findUnique).mockResolvedValue(null);
 
       // Mock rating creation
-      const mockRating: Rating = {
-        id: 'rating_123',
-        userId: 'user_123',
-        placeId: 'place_123',
-        rating: 4,
-        createdAt: FIXED_DATE,
-        updatedAt: FIXED_DATE,
-      };
+      const mockRating = createMockRating(4);
       vi.mocked(prisma.rating.create).mockResolvedValue(mockRating);
 
       await POST(mockRequest);
@@ -340,7 +312,8 @@ describe('Rating API Routes', () => {
       expect(prisma.place.findUnique).toHaveBeenCalledWith({
         where: { id: 'place_123' },
       });
-      expect(prisma.place.create).toHaveBeenCalledWith({
+      expect(inngest.send).toHaveBeenCalledWith({
+        name: 'places/get-details',
         data: {
           id: 'place_123',
         },
@@ -363,7 +336,6 @@ describe('Rating API Routes', () => {
       expect(NextResponse.json).toHaveBeenCalledWith(
         {
           message: 'Rating added',
-          place: mockPlace,
           rating: mockRating,
           action: 'added',
         },
@@ -383,52 +355,17 @@ describe('Rating API Routes', () => {
       ) as unknown as NextRequest;
 
       // Mock user found
-      const mockUser: User = {
-        id: 'user_123',
-        email: 'test@example.com',
-        firstName: 'Test',
-        lastName: 'User',
-        username: 'testuser',
-        imageUrl: 'https://example.com/image.jpg',
-        createdAt: FIXED_DATE,
-        updatedAt: FIXED_DATE,
-      };
       vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser);
 
       // Mock place found
-      const mockPlace: Place = {
-        id: 'place_123',
-        name: null,
-        description: null,
-        latitude: null,
-        longitude: null,
-        address: null,
-        merchantId: null,
-        createdAt: FIXED_DATE,
-        updatedAt: FIXED_DATE,
-      };
       vi.mocked(prisma.place.findUnique).mockResolvedValue(mockPlace);
 
       // Mock existing rating found
-      const existingRating: Rating = {
-        id: 'rating_123',
-        userId: 'user_123',
-        placeId: 'place_123',
-        rating: 4, // Previous rating
-        createdAt: FIXED_DATE,
-        updatedAt: FIXED_DATE,
-      };
+      const existingRating = createMockRating(4);
       vi.mocked(prisma.rating.findUnique).mockResolvedValue(existingRating);
 
       // Mock rating update
-      const updatedRating: Rating = {
-        id: 'rating_123',
-        userId: 'user_123',
-        placeId: 'place_123',
-        rating: 5, // Updated rating
-        createdAt: FIXED_DATE,
-        updatedAt: FIXED_DATE,
-      };
+      const updatedRating = createMockRating(5);
       vi.mocked(prisma.rating.update).mockResolvedValue(updatedRating);
 
       await POST(mockRequest);
@@ -440,7 +377,6 @@ describe('Rating API Routes', () => {
       expect(NextResponse.json).toHaveBeenCalledWith(
         {
           message: 'Rating updated',
-          place: mockPlace,
           rating: updatedRating,
           action: 'updated',
         },
@@ -460,41 +396,13 @@ describe('Rating API Routes', () => {
       ) as unknown as NextRequest;
 
       // Mock user found
-      const mockUser: User = {
-        id: 'user_123',
-        email: 'test@example.com',
-        firstName: 'Test',
-        lastName: 'User',
-        username: 'testuser',
-        imageUrl: 'https://example.com/image.jpg',
-        createdAt: FIXED_DATE,
-        updatedAt: FIXED_DATE,
-      };
       vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser);
 
       // Mock place found
-      const mockPlace: Place = {
-        id: 'place_123',
-        name: null,
-        description: null,
-        latitude: null,
-        longitude: null,
-        address: null,
-        merchantId: null,
-        createdAt: FIXED_DATE,
-        updatedAt: FIXED_DATE,
-      };
       vi.mocked(prisma.place.findUnique).mockResolvedValue(mockPlace);
 
       // Mock existing rating found with same rating
-      const existingRating: Rating = {
-        id: 'rating_123',
-        userId: 'user_123',
-        placeId: 'place_123',
-        rating: 4, // Same rating
-        createdAt: FIXED_DATE,
-        updatedAt: FIXED_DATE,
-      };
+      const existingRating = createMockRating(4);
       vi.mocked(prisma.rating.findUnique).mockResolvedValue(existingRating);
 
       // Mock rating deletion
@@ -508,7 +416,6 @@ describe('Rating API Routes', () => {
       expect(NextResponse.json).toHaveBeenCalledWith(
         {
           message: 'Rating removed',
-          place: mockPlace,
           rating: existingRating,
           action: 'removed',
         },

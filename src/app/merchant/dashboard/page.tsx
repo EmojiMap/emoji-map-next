@@ -196,7 +196,9 @@ export default function MerchantDashboard() {
                     <div className='flex items-center gap-2'>
                       <MapPin className='h-4 w-4 text-muted-foreground' />
                       <p className='text-sm text-muted-foreground'>
-                        {place.description}
+                        {place.editorialSummary ||
+                          place.generativeSummary ||
+                          'No description available'}
                       </p>
                     </div>
                     {place.address && (

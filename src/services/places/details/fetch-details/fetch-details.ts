@@ -22,6 +22,7 @@ export async function fetchDetails(id: string) {
     const baseUrl = env.GOOGLE_PLACES_URL;
 
     const fields = [
+      'id',
       'name',
       'rating',
       'reviews',

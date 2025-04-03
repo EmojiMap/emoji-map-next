@@ -1,37 +1,22 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
+import { inngest } from '@/inngest/client';
 import { prisma } from '@/lib/db';
 import { getUserId } from '@/services/user/get-user-id';
 import type { ErrorResponse } from '@/types/error-response';
 import { log } from '@/utils/log';
 import type { Favorite, Place } from '@prisma/client';
 
-/**
- * POST handler for favoriting a place
- * if the place is already favorited, it will be removed from the users favorites
- * if the place is not favorited, it will first create the place in the database
- * and then create the favorite relationship
- *
- * @param request - The Next.js request object containing the place ID in the body
- * @returns A NextResponse with:
- *  - 200: {message: string, place: Place, favorite: Favorite | null, action: 'added' | 'removed'} if successful
- *  - 400: {error: string} if place ID missing
- *  - 401: {error: string} if unauthorized
- *  - 404: {error: string} if user not found
- *  - 500: {error: string} if server error
- */
-export async function POST(request: NextRequest): Promise<
-  NextResponse<
-    | {
-        message: string;
-        place: Place;
-        favorite: Favorite | null;
-        action: 'added' | 'removed';
-      }
-    | ErrorResponse
-  >
-> {
+type FavoriteResponse = {
+  message: string;
+  favorite: Favorite | null;
+  action: 'added' | 'removed';
+};
+
+export async function POST(
+  request: NextRequest
+): Promise<NextResponse<FavoriteResponse | ErrorResponse>> {
   try {
     const userId = await getUserId(request);
 
@@ -57,14 +42,15 @@ export async function POST(request: NextRequest): Promise<
     }
 
     // Check if this place exists in the database
-    let place = await prisma.place.findUnique({
+    const place = await prisma.place.findUnique({
       where: { id: placeId },
     });
 
     // If place doesn't exist, create it
     if (!place) {
       log.debug('Place not found, creating it');
-      place = await prisma.place.create({
+      await inngest.send({
+        name: 'places/get-details',
         data: {
           id: placeId,
         },
@@ -76,7 +62,7 @@ export async function POST(request: NextRequest): Promise<
       where: {
         userId_placeId: {
           userId: user.id,
-          placeId: place.id,
+          placeId,
         },
       },
     });
@@ -101,7 +87,7 @@ export async function POST(request: NextRequest): Promise<
       favorite = await prisma.favorite.create({
         data: {
           userId: user.id,
-          placeId: place.id,
+          placeId,
         },
       });
 
@@ -111,7 +97,6 @@ export async function POST(request: NextRequest): Promise<
     return NextResponse.json(
       {
         message: action === 'added' ? 'Favorite added' : 'Favorite removed',
-        place,
         favorite,
         action,
       },

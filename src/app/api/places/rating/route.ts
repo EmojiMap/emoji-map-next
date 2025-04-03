@@ -1,42 +1,28 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { isNull, isUndefined, toNumber } from 'lodash-es';
+import { inngest } from '@/inngest/client';
 import { prisma } from '@/lib/db';
 import { getUserId } from '@/services/user/get-user-id';
 import type { ErrorResponse } from '@/types/error-response';
 import { log } from '@/utils/log';
-import type { Place, Rating } from '@prisma/client';
+import type { Rating } from '@prisma/client';
 
-/**
- * POST handler for rating a place
- *
- * if the user has already rated the place,
- * they can either update their rating by providing a non null
- * rating param, or they can delete their rating by providing a
- * null rating param
- *
- * if a user has not already rated a place,
- * they can create a rating by providing a non null rating param
- * if the place does not exist, it will be created
- *
- */
-export async function POST(request: NextRequest): Promise<
-  NextResponse<
-    | {
-        message: string;
-        place: Place;
-        rating: Rating | null;
-        action: 'added' | 'removed' | 'updated';
-      }
-    | ErrorResponse
-  >
-> {
+type RatingResponse = {
+  message: string;
+  rating: Rating | null;
+  action: 'added' | 'removed' | 'updated';
+};
+
+export async function POST(
+  request: NextRequest
+): Promise<NextResponse<RatingResponse | ErrorResponse>> {
   try {
     const userId = await getUserId(request);
 
     // Find the user by id
     const user = await prisma.user.findUnique({
-      where: { id: userId as string },
+      where: { id: userId },
     });
 
     if (!user) {
@@ -45,7 +31,7 @@ export async function POST(request: NextRequest): Promise<
     }
 
     const params = await request.json();
-    const placeId = params?.placeId;
+    const placeId: string | undefined = params?.placeId;
 
     if (!placeId) {
       log.error('Place ID is required');
@@ -64,14 +50,15 @@ export async function POST(request: NextRequest): Promise<
     }
 
     // Check if this place exists in the database
-    let place = await prisma.place.findUnique({
+    const place = await prisma.place.findUnique({
       where: { id: placeId },
     });
 
     // If place doesn't exist, create it
     if (!place) {
       log.debug('Place not found, creating it');
-      place = await prisma.place.create({
+      await inngest.send({
+        name: 'places/get-details',
         data: {
           id: placeId,
         },
@@ -83,7 +70,7 @@ export async function POST(request: NextRequest): Promise<
       where: {
         userId_placeId: {
           userId: user.id,
-          placeId: place.id,
+          placeId,
         },
       },
     });
@@ -136,7 +123,7 @@ export async function POST(request: NextRequest): Promise<
       rating = await prisma.rating.create({
         data: {
           userId: user.id,
-          placeId: place.id,
+          placeId,
           rating: toNumber(userRating),
         },
       });
@@ -152,7 +139,6 @@ export async function POST(request: NextRequest): Promise<
             : action === 'updated'
             ? 'Rating updated'
             : 'Rating removed',
-        place,
         rating,
         action,
       },

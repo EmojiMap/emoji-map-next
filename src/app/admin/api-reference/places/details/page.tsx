@@ -539,7 +539,7 @@ function DetailsForm() {
                                 )}
                                 {renderDetailField(
                                   'Address',
-                                  placeDetailsQuery.data.data.formattedAddress
+                                  placeDetailsQuery.data.data.address
                                 )}
                                 {renderDetailField(
                                   'Latitude',
@@ -772,12 +772,7 @@ function DetailsForm() {
                                               'Unknown date'}
                                           </p>
                                           <p className='text-sm'>
-                                            {typeof review.text === 'object' &&
-                                            review.text?.text
-                                              ? review.text.text
-                                              : typeof review.text === 'string'
-                                              ? review.text
-                                              : 'No review text'}
+                                            {review.text}
                                           </p>
                                         </div>
                                       )

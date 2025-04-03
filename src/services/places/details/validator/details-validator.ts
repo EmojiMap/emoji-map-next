@@ -34,6 +34,7 @@ const priceLevelEnum = z.enum([
 ]);
 
 export const googleDetailsResponseSchema = z.object({
+  id: z.string(),
   name: z.string().optional(),
   displayName: textObjectSchema.optional(),
   primaryTypeDisplayName: textObjectSchema.optional(),

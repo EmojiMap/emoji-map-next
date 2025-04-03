@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { GET, POST } from '@/app/api/places/favorite/route';
+import { inngest } from '@/inngest/client';
 import { prisma } from '@/lib/db';
 import { getUserId } from '@/services/user/get-user-id';
 import { log } from '@/utils/log';
@@ -44,6 +45,13 @@ vi.mock('@/lib/db', () => ({
   },
 }));
 
+// Mock inngest
+vi.mock('@/inngest/client', () => ({
+  inngest: {
+    send: vi.fn(),
+  },
+}));
+
 vi.mock('@/utils/log', () => ({
   log: {
     error: vi.fn(),
@@ -58,7 +66,7 @@ describe('Favorite API Routes', () => {
   // Mock data
   const mockUserId = 'user123';
   const mockPlaceId = 'place123';
-  const mockUser = {
+  const mockUser: User = {
     id: mockUserId,
     email: 'test@example.com',
     username: 'testuser',
@@ -67,25 +75,49 @@ describe('Favorite API Routes', () => {
     imageUrl: null,
     createdAt: mockDate,
     updatedAt: mockDate,
-  } as User;
+  };
 
-  const mockPlace = {
+  const mockPlace: Place = {
     id: mockPlaceId,
-    name: null,
-    description: null,
-    latitude: null,
-    longitude: null,
+    name: 'Test Place',
+    latitude: 37.7749,
+    longitude: -122.4194,
+    address: '123 Test St',
+    merchantId: null,
+    allowsDogs: false,
+    delivery: true,
+    editorialSummary: 'A great place to eat',
+    generativeSummary: 'This is a generated summary',
+    goodForChildren: true,
+    dineIn: true,
+    goodForGroups: true,
+    isFree: false,
+    liveMusic: false,
+    menuForChildren: true,
+    outdoorSeating: true,
+    acceptsCashOnly: false,
+    acceptsCreditCards: true,
+    acceptsDebitCards: true,
+    priceLevel: 2,
+    primaryTypeDisplayName: 'Restaurant',
+    googleRating: 4.5,
+    servesCoffee: true,
+    servesDessert: true,
+    takeout: true,
+    restroom: true,
+    openNow: true,
+    userRatingCount: 100,
     createdAt: mockDate,
     updatedAt: mockDate,
-  } as Place;
+  };
 
-  const mockFavorite = {
+  const mockFavorite: Favorite = {
     id: 'favorite123',
     userId: mockUserId,
     placeId: mockPlaceId,
     createdAt: mockDate,
     updatedAt: mockDate,
-  } as Favorite;
+  };
 
   beforeEach(() => {
     // Set up fake timers
@@ -171,13 +203,12 @@ describe('Favorite API Routes', () => {
       expect(body).toEqual({ error: 'User not found' });
     });
 
-    it('should create a place if it does not exist and add it to favorites', async () => {
+    it('should trigger place details fetch if place does not exist and add it to favorites', async () => {
       // Mock user found
       vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(mockUser);
 
-      // Mock place not found, then created
+      // Mock place not found
       vi.mocked(prisma.place.findUnique).mockResolvedValueOnce(null);
-      vi.mocked(prisma.place.create).mockResolvedValueOnce(mockPlace);
 
       // Mock no existing favorite
       vi.mocked(prisma.favorite.findUnique).mockResolvedValueOnce(null);
@@ -194,8 +225,11 @@ describe('Favorite API Routes', () => {
       const body = await getResponseBody(response);
 
       expect(getUserId).toHaveBeenCalledWith(request);
-      expect(prisma.place.create).toHaveBeenCalledWith({
-        data: { id: mockPlaceId },
+      expect(inngest.send).toHaveBeenCalledWith({
+        name: 'places/get-details',
+        data: {
+          id: mockPlaceId,
+        },
       });
       expect(prisma.favorite.create).toHaveBeenCalledWith({
         data: {
@@ -206,7 +240,6 @@ describe('Favorite API Routes', () => {
       expect(response.status).toBe(200);
       expectObjectsToMatch(body, {
         message: 'Favorite added',
-        place: mockPlace,
         favorite: mockFavorite,
         action: 'added',
       });
@@ -234,7 +267,6 @@ describe('Favorite API Routes', () => {
       const body = await getResponseBody(response);
 
       expect(getUserId).toHaveBeenCalledWith(request);
-      expect(prisma.place.create).not.toHaveBeenCalled();
       expect(prisma.favorite.create).toHaveBeenCalledWith({
         data: {
           userId: mockUserId,
@@ -244,7 +276,6 @@ describe('Favorite API Routes', () => {
       expect(response.status).toBe(200);
       expectObjectsToMatch(body, {
         message: 'Favorite added',
-        place: mockPlace,
         favorite: mockFavorite,
         action: 'added',
       });
@@ -278,7 +309,6 @@ describe('Favorite API Routes', () => {
       expect(response.status).toBe(200);
       expectObjectsToMatch(body, {
         message: 'Favorite removed',
-        place: mockPlace,
         favorite: null,
         action: 'removed',
       });

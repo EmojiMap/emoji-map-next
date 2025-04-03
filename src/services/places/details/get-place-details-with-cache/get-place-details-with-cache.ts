@@ -1,16 +1,10 @@
 import { DETAILS_CONFIG } from '@/constants/details';
 import { redis } from '@/lib/redis';
-import type { DetailResponse, Detail } from '@/types/details';
+import type { DetailResponse, PlaceWithReviews } from '@/types/details';
 import { log } from '@/utils/log';
 import { fetchDetails } from '../fetch-details/fetch-details';
 import { generateCacheKey } from '../generate-cache-key/generate-cache-key';
-/**
- * Represents the options for fetching place details.
- *
- * @interface FetchPlaceDetailsOptions
- * @property {string} id - The ID of the place to fetch details for
- * @property {boolean} bypassCache - Whether to bypass the cache and fetch fresh data from the API
- */
+
 interface FetchPlaceDetailsOptions {
   id: string;
   bypassCache?: boolean;
@@ -31,7 +25,7 @@ export async function getPlaceDetailsWithCache({
 
   // Check cache if not bypassing
   if (!bypassCache && cacheKey) {
-    const cachedData = await redis.get<Detail>(cacheKey);
+    const cachedData = await redis.get<PlaceWithReviews>(cacheKey);
     if (cachedData) {
       log.success(`[DETAILS]Cache hit`);
 

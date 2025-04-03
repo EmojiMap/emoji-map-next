@@ -1,15 +1,22 @@
 import { EventSchemas, Inngest } from 'inngest';
 import type { DetailResponse } from '@/types/details';
 
-type PlaceUpsert = {
+type PlaceCreate = {
   data: {
     id: string;
     details: DetailResponse;
   };
 };
 
+type PlaceGetDetails = {
+  data: {
+    id: string;
+  };
+};
+
 type Events = {
-  'places/upsert': PlaceUpsert;
+  'places/create': PlaceCreate;
+  'places/get-details': PlaceGetDetails;
 };
 
 export const inngest = new Inngest({

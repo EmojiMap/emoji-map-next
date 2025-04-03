@@ -10,14 +10,16 @@ datasource db {
 }
 
 model User {
-  id        String     @id @unique
-  email     String     @unique
+  id        String  @id @unique
+  email     String  @unique
   username  String?
   firstName String?
   lastName  String?
   imageUrl  String?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @default(now()) @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
   favorites Favorite[]
   ratings   Rating[]
   merchant  Merchant?
@@ -26,33 +28,59 @@ model User {
 }
 
 model Place {
-  id          String     @id @default(cuid())
-  name        String?
-  description String?
-  latitude    Float?
-  longitude   Float?
-  address     String?
-  merchantId  String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @default(now()) @updatedAt
-  favorites   Favorite[]
-  photos      Photo[]
-  ratings     Rating[]
-  reviews     Review[]
-  merchant    Merchant?  @relation(fields: [merchantId], references: [id])
+  id                     String   @id @default(cuid())
+  name                   String
+  latitude               Float
+  longitude              Float
+  address                String
+  merchantId             String?
+  allowsDogs             Boolean
+  delivery               Boolean
+  editorialSummary       String?
+  generativeSummary      String?
+  goodForChildren        Boolean
+  dineIn                 Boolean
+  goodForGroups          Boolean
+  isFree                 Boolean
+  liveMusic              Boolean
+  menuForChildren        Boolean
+  outdoorSeating         Boolean
+  acceptsCashOnly        Boolean?
+  acceptsCreditCards     Boolean?
+  acceptsDebitCards      Boolean?
+  priceLevel             Int? // 1-4 inclusive
+  primaryTypeDisplayName String?
+  googleRating           Float
+  servesCoffee           Boolean
+  servesDessert          Boolean
+  takeout                Boolean
+  restroom               Boolean
+  openNow                Boolean?
+  userRatingCount        Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  favorites Favorite[]
+  photos    Photo[]
+  ratings   Rating[]
+  reviews   Review[]
+  merchant  Merchant?  @relation(fields: [merchantId], references: [id])
 
   @@index([name])
   @@index([merchantId])
 }
 
 model Favorite {
-  id        String   @id @default(cuid())
-  userId    String
-  placeId   String
+  id      String @id @default(cuid())
+  userId  String
+  placeId String
+
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
-  place     Place    @relation(fields: [placeId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  place Place @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, placeId])
   @@index([userId])
@@ -60,14 +88,16 @@ model Favorite {
 }
 
 model Rating {
-  id        String   @id @default(cuid())
-  userId    String
-  placeId   String
-  rating    Int
+  id      String @id @default(cuid())
+  userId  String
+  placeId String
+  rating  Int
+
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
-  place     Place    @relation(fields: [placeId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  place Place @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, placeId])
   @@index([userId])
@@ -81,32 +111,44 @@ model Category {
   keywords String[]
 }
 
+enum ReviewStatus {
+  DEFAULT
+  HIDDEN
+  FEATURED
+}
+
 model Review {
-  id                             String   @id @default(cuid())
+  id                             String       @id @default(cuid())
   placeId                        String
-  name                           String
   relativePublishTimeDescription String
   rating                         Int
   text                           String
-  createdAt                      DateTime @default(now())
-  updatedAt                      DateTime @default(now()) @updatedAt
-  place                          Place    @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  status                         ReviewStatus @default(DEFAULT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  place Place @relation(fields: [placeId], references: [id], onDelete: Cascade)
 }
 
 model Photo {
-  id        String   @id @default(cuid())
-  placeId   String
-  url       String
+  id      String @id @default(cuid())
+  placeId String
+  url     String
+
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
-  place     Place    @relation(fields: [placeId], references: [id], onDelete: Cascade)
+
+  place Place @relation(fields: [placeId], references: [id], onDelete: Cascade)
 }
 
 model Merchant {
-  id        String   @id @default(cuid())
-  userId    String   @unique
+  id     String @id @default(cuid())
+  userId String @unique
+
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
-  places    Place[]
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  places Place[]
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

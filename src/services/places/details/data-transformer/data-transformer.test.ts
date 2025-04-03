@@ -1,116 +1,139 @@
+import { ReviewStatus } from '@prisma/client';
 import { describe, it, expect } from 'vitest';
 import { transformDetailsData } from './data-transformer';
+import { getReviewId } from '../get-review-id/get-review-id';
 import type { ValidatedGoogleDetailsResponse } from '../validator/details-validator';
 
 describe('data-transformer', () => {
   describe('transformDetailsData', () => {
     it('should transform a complete response correctly', () => {
       // Arrange
-      const mockData: ValidatedGoogleDetailsResponse = {
-        name: 'Test Restaurant',
+      const mockData = {
+        id: 'ChIJifIePKtZwokRVZ-UdRGkZzs',
+        name: 'places/ChIJifIePKtZwokRVZ-UdRGkZzs',
+        displayName: {
+          text: "Joe's Pizza Broadway",
+        },
+        primaryTypeDisplayName: {
+          text: 'Pizza Restaurant',
+        },
+        delivery: true,
+        dineIn: true,
+        goodForChildren: true,
+        restroom: false,
+        goodForGroups: true,
+        paymentOptions: {
+          acceptsCreditCards: true,
+          acceptsDebitCards: true,
+          acceptsCashOnly: false,
+        },
         reviews: [
           {
-            name: 'Review 1',
+            name: 'places/ChIJifIePKtZwokRVZ-UdRGkZzs/reviews/ChdDSUhNMG9nS0VJQ0FnTUR3eGREQzV3RRAB',
+            relativePublishTimeDescription: 'in the last week',
             rating: 5,
-            relativePublishTimeDescription: '2 days ago',
             text: {
-              text: 'Great place!',
+              text: "Came to Joe's Pizza in Times Square after hearing all the hype—and it absolutely lived up to it. The place was packed (as expected), but the line moved fast and the staff kept things flowing smoothly.\n\nI got a pepperoni slice with sausage, mushrooms, and red onions—super flavorful, thin crust, crispy on the edges, and not overly greasy. It had that perfect NYC street slice taste you hope for. Just classic and satisfying.\n\nThe vibe inside is pure New York: walls covered in celebrity photos, press clippings, and Spider-Man references. It feels like a piece of pizza history. Despite being in such a tourist-heavy area, Joe's still feels authentic and delivers the real deal.\n\nIf you're in NYC and want a proper slice, this is the spot. I'd definitely come back.",
               languageCode: 'en',
             },
             originalText: {
-              text: 'Great place!',
+              text: "Came to Joe's Pizza in Times Square after hearing all the hype—and it absolutely lived up to it. The place was packed (as expected), but the line moved fast and the staff kept things flowing smoothly.\n\nI got a pepperoni slice with sausage, mushrooms, and red onions—super flavorful, thin crust, crispy on the edges, and not overly greasy. It had that perfect NYC street slice taste you hope for. Just classic and satisfying.\n\nThe vibe inside is pure New York: walls covered in celebrity photos, press clippings, and Spider-Man references. It feels like a piece of pizza history. Despite being in such a tourist-heavy area, Joe's still feels authentic and delivers the real deal.\n\nIf you're in NYC and want a proper slice, this is the spot. I'd definitely come back.",
               languageCode: 'en',
             },
           },
         ],
         rating: 4.5,
-        priceLevel: 'PRICE_LEVEL_MODERATE',
-        userRatingCount: 100,
+        priceLevel: 'PRICE_LEVEL_INEXPENSIVE',
+        userRatingCount: 21260,
         currentOpeningHours: {
           openNow: true,
         },
-        displayName: {
-          text: 'Test Restaurant Display Name',
-        },
-        primaryTypeDisplayName: {
-          text: 'Restaurant',
-        },
         takeout: true,
-        delivery: false,
-        dineIn: true,
         editorialSummary: {
-          text: 'A great restaurant with amazing food',
+          text: 'Modern outpost of a longtime counter-serve pizza joint prepping New York-style slices and pies.',
         },
         outdoorSeating: true,
         liveMusic: false,
-        menuForChildren: true,
-        servesDessert: true,
-        servesCoffee: true,
-        goodForChildren: true,
-        goodForGroups: true,
-        allowsDogs: false,
-        restroom: true,
-        paymentOptions: {
-          acceptsCreditCards: true,
-          acceptsDebitCards: true,
-          acceptsCashOnly: false,
-        },
+        menuForChildren: false,
+        servesDessert: false,
+        servesCoffee: false,
         generativeSummary: {
           overview: {
-            text: 'This is a generative summary of the restaurant',
+            text: 'Casual spot offering many types of New York-style pizza, including by the slice, until late at night.',
           },
         },
         location: {
-          latitude: 37.7749,
-          longitude: -122.4194,
+          latitude: 40.754679499999995,
+          longitude: -73.9870291,
         },
-        formattedAddress: '123 Test St, San Francisco, CA 94105',
+        formattedAddress: '1435 Broadway, New York, NY 10018, USA',
       };
 
       // Act
-      const result = transformDetailsData(mockData);
+      const result = transformDetailsData(
+        mockData as ValidatedGoogleDetailsResponse
+      );
 
       // Assert
       expect(result).toEqual({
-        name: 'Test Restaurant',
-        reviews: mockData.reviews,
-        rating: 4.5,
-        priceLevel: 2, // PRICE_LEVEL_MODERATE maps to 2
-        userRatingCount: 100,
-        openNow: true,
-        displayName: 'Test Restaurant Display Name',
-        primaryTypeDisplayName: 'Restaurant',
-        takeout: true,
-        delivery: false,
-        dineIn: true,
-        editorialSummary: 'A great restaurant with amazing food',
-        outdoorSeating: true,
-        liveMusic: false,
-        menuForChildren: true,
-        servesDessert: true,
-        servesCoffee: true,
-        goodForChildren: true,
-        goodForGroups: true,
+        id: mockData.id,
+        name: mockData.displayName.text,
+        reviews: [
+          {
+            id: getReviewId(mockData.reviews[0].name),
+            placeId: mockData.id,
+            rating: mockData.reviews[0].rating,
+            relativePublishTimeDescription:
+              mockData.reviews[0].relativePublishTimeDescription,
+            status: ReviewStatus.DEFAULT,
+            text: mockData.reviews[0].text.text,
+          },
+        ],
+        rating: mockData.rating,
+        priceLevel: 1, // PRICE_LEVEL_INEXPENSIVE maps to 1
+        userRatingCount: mockData.userRatingCount,
+        openNow: mockData.currentOpeningHours.openNow,
+        displayName: mockData.displayName.text,
+        primaryTypeDisplayName: mockData.primaryTypeDisplayName.text,
+        takeout: mockData.takeout,
+        delivery: mockData.delivery,
+        dineIn: mockData.dineIn,
+        editorialSummary: mockData.editorialSummary.text,
+        outdoorSeating: mockData.outdoorSeating,
+        liveMusic: mockData.liveMusic,
+        menuForChildren: mockData.menuForChildren,
+        servesDessert: mockData.servesDessert,
+        servesCoffee: mockData.servesCoffee,
+        goodForChildren: mockData.goodForChildren,
+        goodForGroups: mockData.goodForGroups,
         allowsDogs: false,
-        restroom: true,
+        restroom: mockData.restroom,
+        acceptsCreditCards: mockData.paymentOptions.acceptsCreditCards,
+        acceptsDebitCards: mockData.paymentOptions.acceptsDebitCards,
+        acceptsCashOnly: mockData.paymentOptions.acceptsCashOnly,
         paymentOptions: {
-          acceptsCreditCards: true,
-          acceptsDebitCards: true,
-          acceptsCashOnly: false,
+          acceptsCreditCards: mockData.paymentOptions.acceptsCreditCards,
+          acceptsDebitCards: mockData.paymentOptions.acceptsDebitCards,
+          acceptsCashOnly: mockData.paymentOptions.acceptsCashOnly,
         },
-        generativeSummary: 'This is a generative summary of the restaurant',
+        generativeSummary: mockData.generativeSummary.overview.text,
         isFree: false,
         location: {
-          latitude: 37.7749,
-          longitude: -122.4194,
+          latitude: mockData.location.latitude,
+          longitude: mockData.location.longitude,
         },
-        formattedAddress: '123 Test St, San Francisco, CA 94105',
+        address: mockData.formattedAddress,
+        merchantId: null,
+        googleRating: mockData.rating,
+        latitude: mockData.location.latitude,
+        longitude: mockData.location.longitude,
       });
     });
 
     it('should handle a free place correctly', () => {
       // Arrange
       const mockData: ValidatedGoogleDetailsResponse = {
+        id: 'free-museum-123',
         name: 'Free Museum',
         priceLevel: 'PRICE_LEVEL_FREE',
         rating: 4.8,
@@ -134,6 +157,7 @@ describe('data-transformer', () => {
     it('should handle a place with unspecified price level', () => {
       // Arrange
       const mockData: ValidatedGoogleDetailsResponse = {
+        id: 'unknown-price-123',
         name: 'Unknown Price Place',
         priceLevel: 'PRICE_LEVEL_UNSPECIFIED',
         rating: 4.0,
@@ -157,6 +181,7 @@ describe('data-transformer', () => {
     it('should handle missing optional fields with default values', () => {
       // Arrange
       const mockData: ValidatedGoogleDetailsResponse = {
+        id: 'minimal-place-123',
         name: 'Minimal Place',
         rating: 3.5,
         userRatingCount: 10,
@@ -174,7 +199,8 @@ describe('data-transformer', () => {
 
       // Assert
       expect(result).toMatchObject({
-        name: 'Minimal Place',
+        id: 'minimal-place-123',
+        name: '',
         reviews: [],
         displayName: '',
         primaryTypeDisplayName: '',
@@ -202,13 +228,22 @@ describe('data-transformer', () => {
           latitude: 37.7749,
           longitude: -122.4194,
         },
-        formattedAddress: '123 Minimal St, San Francisco, CA 94105',
+        latitude: 37.7749,
+        longitude: -122.4194,
+        address: '123 Minimal St, San Francisco, CA 94105',
+        merchantId: null,
+        googleRating: 3.5,
+        rating: 3.5,
+        userRatingCount: 10,
+        openNow: null,
+        priceLevel: null,
       });
     });
 
     it('should handle missing nested fields correctly', () => {
       // Arrange
       const mockData: ValidatedGoogleDetailsResponse = {
+        id: 'partial-data-123',
         name: 'Partial Data Place',
         reviews: [],
         rating: 3.5,
@@ -251,6 +286,7 @@ describe('data-transformer', () => {
       priceLevels.forEach(({ input, expected, isFree }) => {
         // Arrange
         const mockData: ValidatedGoogleDetailsResponse = {
+          id: `${input.toLowerCase()}-place-123`,
           name: `${input} Place`,
           priceLevel: input,
           rating: 4.0,

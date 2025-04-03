@@ -1,38 +1,112 @@
 {
-  "name": "places/ChIJV_U7LED_wokRul5d4R2YP_g",
-  "rating": 4,
-  "priceLevel": "PRICE_LEVEL_MODERATE",
-  "userRatingCount": 4508,
-  "primaryTypeDisplayName": {
-    "text": "Diner"
+  "id": "ChIJifIePKtZwokRVZ-UdRGkZzs",
+  "name": "places/ChIJifIePKtZwokRVZ-UdRGkZzs",
+  "displayName": {
+    "text": "Joe's Pizza Broadway"
   },
-  "takeout": true,
+  "primaryTypeDisplayName": {
+    "text": "Pizza Restaurant"
+  },
   "delivery": true,
   "dineIn": true,
-  "currentOpeningHours": {
-    "openNow": false
-  },
-  "editorialSummary": {
-    "text": "Old-school 1940s art deco diner serving breakfast & American comfort food 24/7."
-  },
-  "outdoorSeating": true,
-  "liveMusic": false,
-  "menuForChildren": true,
-  "servesDessert": true,
-  "servesCoffee": true,
   "goodForChildren": true,
-  "allowsDogs": false,
-  "restroom": true,
+  "restroom": false,
   "goodForGroups": true,
   "paymentOptions": {
     "acceptsCreditCards": true,
     "acceptsDebitCards": true,
-    "acceptsCashOnly": false,
-    "acceptsNfc": true
+    "acceptsCashOnly": false
   },
+  "reviews": [
+    {
+      "name": "places/ChIJifIePKtZwokRVZ-UdRGkZzs/reviews/ChdDSUhNMG9nS0VJQ0FnTUR3eGREQzV3RRAB",
+      "relativePublishTimeDescription": "in the last week",
+      "rating": 5,
+      "text": {
+        "text": "Came to Joe's Pizza in Times Square after hearing all the hype—and it absolutely lived up to it. The place was packed (as expected), but the line moved fast and the staff kept things flowing smoothly.\n\nI got a pepperoni slice with sausage, mushrooms, and red onions—super flavorful, thin crust, crispy on the edges, and not overly greasy. It had that perfect NYC street slice taste you hope for. Just classic and satisfying.\n\nThe vibe inside is pure New York: walls covered in celebrity photos, press clippings, and Spider-Man references. It feels like a piece of pizza history. Despite being in such a tourist-heavy area, Joe's still feels authentic and delivers the real deal.\n\nIf you're in NYC and want a proper slice, this is the spot. I'd definitely come back.",
+        "languageCode": "en"
+      },
+      "originalText": {
+        "text": "Came to Joe's Pizza in Times Square after hearing all the hype—and it absolutely lived up to it. The place was packed (as expected), but the line moved fast and the staff kept things flowing smoothly.\n\nI got a pepperoni slice with sausage, mushrooms, and red onions—super flavorful, thin crust, crispy on the edges, and not overly greasy. It had that perfect NYC street slice taste you hope for. Just classic and satisfying.\n\nThe vibe inside is pure New York: walls covered in celebrity photos, press clippings, and Spider-Man references. It feels like a piece of pizza history. Despite being in such a tourist-heavy area, Joe's still feels authentic and delivers the real deal.\n\nIf you're in NYC and want a proper slice, this is the spot. I'd definitely come back.",
+        "languageCode": "en"
+      }
+    },
+    {
+      "name": "places/ChIJifIePKtZwokRVZ-UdRGkZzs/reviews/ChZDSUhNMG9nS0VJQ0FnTUN3LWFqUUpREAE",
+      "relativePublishTimeDescription": "a week ago",
+      "rating": 4,
+      "text": {
+        "text": "Joe's Pizza is a very popular and well-known restaurant in New York City. Although the place is really not bad, it cannot be called unsurpassed. However, if you are in New York, you should visit this place at least once to try the insanely famous pizza slices.\n\nThe pizzeria is very popular, especially because of its location on Broadway. Given this, in the evening, you need to be prepared for a long line - during our visit, it stretched for an entire street to the next intersection, moving at an average speed.\n\nIt was very cozy inside, with a really cool atmosphere. Despite the large number of visitors, we even managed to find a seat and enjoy the pizza inside. We ordered three different slices of pizza (pepperoni, regular cheese, and cheese with extra mozzarella), all of which were large and fresh. As for the taste, I can say that the pizza was standard tasty without any special features, but not the best you can find in New York. There are many lesser-known pizzerias on the streets where you can buy a similar pizza at a lower price, and it tastes and is identical in size.\nA nice bonus was the opportunity to add extra Parmesan or other spices for free.\n\nTo summarize, it is worth visiting Joe's Pizza at least once while in New York, if only because of the incredible atmosphere of the place. However, I would not recommend wasting time waiting in line for a piece of pizza again, as the city offers many other places with a variety of delicious food.",
+        "languageCode": "en"
+      },
+      "originalText": {
+        "text": "Joe's Pizza is a very popular and well-known restaurant in New York City. Although the place is really not bad, it cannot be called unsurpassed. However, if you are in New York, you should visit this place at least once to try the insanely famous pizza slices.\n\nThe pizzeria is very popular, especially because of its location on Broadway. Given this, in the evening, you need to be prepared for a long line - during our visit, it stretched for an entire street to the next intersection, moving at an average speed.\n\nIt was very cozy inside, with a really cool atmosphere. Despite the large number of visitors, we even managed to find a seat and enjoy the pizza inside. We ordered three different slices of pizza (pepperoni, regular cheese, and cheese with extra mozzarella), all of which were large and fresh. As for the taste, I can say that the pizza was standard tasty without any special features, but not the best you can find in New York. There are many lesser-known pizzerias on the streets where you can buy a similar pizza at a lower price, and it tastes and is identical in size.\nA nice bonus was the opportunity to add extra Parmesan or other spices for free.\n\nTo summarize, it is worth visiting Joe's Pizza at least once while in New York, if only because of the incredible atmosphere of the place. However, I would not recommend wasting time waiting in line for a piece of pizza again, as the city offers many other places with a variety of delicious food.",
+        "languageCode": "en"
+      }
+    },
+    {
+      "name": "places/ChIJifIePKtZwokRVZ-UdRGkZzs/reviews/ChdDSUhNMG9nS0VJQ0FnTUN3ck02QjBBRRAB",
+      "relativePublishTimeDescription": "2 weeks ago",
+      "rating": 5,
+      "text": {
+        "text": "Had to try the famous Joe's Pizza and it did not disappoint! There was about a 15-20 minute line to get in. It was super busy on a Sunday night at 10pm. But it was worth the wait, they churn out fresh Pizzas constantly and only takes a couple of minutes for a slice to be ready after you order.",
+        "languageCode": "en"
+      },
+      "originalText": {
+        "text": "Had to try the famous Joe's Pizza and it did not disappoint! There was about a 15-20 minute line to get in. It was super busy on a Sunday night at 10pm. But it was worth the wait, they churn out fresh Pizzas constantly and only takes a couple of minutes for a slice to be ready after you order.",
+        "languageCode": "en"
+      }
+    },
+    {
+      "name": "places/ChIJifIePKtZwokRVZ-UdRGkZzs/reviews/ChZDSUhNMG9nS0VJQ0FnTUN3amZYRUZBEAE",
+      "relativePublishTimeDescription": "a week ago",
+      "rating": 5,
+      "text": {
+        "text": "We waited in line for about twenty minutes. It was worth it. The slices were big and the crust ultra thin. The toppings were classic. we tried three different ones and they were equally delicious. Our hotel is next door so we'll definitely have another slice or two before going home. Thank you Joe's!",
+        "languageCode": "en"
+      },
+      "originalText": {
+        "text": "We waited in line for about twenty minutes. It was worth it. The slices were big and the crust ultra thin. The toppings were classic. we tried three different ones and they were equally delicious. Our hotel is next door so we'll definitely have another slice or two before going home. Thank you Joe's!",
+        "languageCode": "en"
+      }
+    },
+    {
+      "name": "places/ChIJifIePKtZwokRVZ-UdRGkZzs/reviews/ChdDSUhNMG9nS0VJQ0FnTURRMGFQdXdRRRAB",
+      "relativePublishTimeDescription": "3 weeks ago",
+      "rating": 5,
+      "text": {
+        "text": "There was a pretty long line when I walked past and decided to join. It moved quickly, with no more than a 15 minute wait. I got the pepperoni and it was everything you need in a slice of pizza: hot, cheesy with just the right amount of sauce. Whether you're a Spiderman fan or just hungry, I'd recommend.",
+        "languageCode": "en"
+      },
+      "originalText": {
+        "text": "There was a pretty long line when I walked past and decided to join. It moved quickly, with no more than a 15 minute wait. I got the pepperoni and it was everything you need in a slice of pizza: hot, cheesy with just the right amount of sauce. Whether you're a Spiderman fan or just hungry, I'd recommend.",
+        "languageCode": "en"
+      }
+    }
+  ],
+  "rating": 4.5,
+  "priceLevel": "PRICE_LEVEL_INEXPENSIVE",
+  "userRatingCount": 21260,
+  "currentOpeningHours": {
+    "openNow": true
+  },
+  "takeout": true,
+  "editorialSummary": {
+    "text": "Modern outpost of a longtime counter-serve pizza joint prepping New York-style slices and pies."
+  },
+  "outdoorSeating": true,
+  "liveMusic": false,
+  "menuForChildren": false,
+  "servesDessert": false,
+  "servesCoffee": false,
   "generativeSummary": {
     "overview": {
-      "text": "Long-standing diner with an Art Deco vibe serving breakfast-to-dinner American eats and cocktails."
+      "text": "Casual spot offering many types of New York-style pizza, including by the slice, until late at night."
     }
-  }
+  },
+  "location": {
+    "latitude": 40.754679499999995,
+    "longitude": -73.9870291
+  },
+  "formattedAddress": "1435 Broadway, New York, NY 10018, USA"
 }
