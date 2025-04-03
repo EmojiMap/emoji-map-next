@@ -32,7 +32,7 @@ describe('getUserId', () => {
   const mockUserId = 'mock-user-id';
 
   // Mock auth response
-  const mockToAuth = vi.fn().mockReturnValue({ userId: mockUserId });
+  let mockToAuth = vi.fn().mockReturnValue({ userId: mockUserId });
   const mockAuthenticateRequest = vi.fn();
 
   // Mock Clerk client
@@ -43,6 +43,9 @@ describe('getUserId', () => {
   beforeEach(() => {
     // Reset mocks
     vi.clearAllMocks();
+
+    // Reset mockToAuth for each test
+    mockToAuth = vi.fn().mockReturnValue({ userId: mockUserId });
 
     // Default mock implementation
     mockAuthenticateRequest.mockResolvedValue({ toAuth: mockToAuth });
@@ -64,7 +67,7 @@ describe('getUserId', () => {
     vi.resetAllMocks();
   });
 
-  it('should return userId when authentication is successful', async () => {
+  it('should return userId when authentication is successful with lowercase authorization header', async () => {
     // Act
     const result = await getUserId(mockRequest);
 
@@ -78,7 +81,48 @@ describe('getUserId', () => {
     expect(result).toEqual(mockUserId);
   });
 
-  it('should throw an error when no authorization header is present', async () => {
+  it('should return userId when authentication is successful with uppercase Authorization header', async () => {
+    // Arrange
+    const headers = new Headers();
+    headers.set('Authorization', 'Bearer mock-token');
+    mockRequest = new NextRequest('https://example.com', { headers });
+
+    // Reset mockToAuth for this test
+    mockToAuth = vi.fn().mockReturnValue({ userId: mockUserId });
+    mockAuthenticateRequest.mockResolvedValue({ toAuth: mockToAuth });
+
+    // Act
+    const result = await getUserId(mockRequest);
+
+    // Assert
+    expect(result).toEqual(mockUserId);
+    expect(mockToAuth).toHaveBeenCalled();
+  });
+
+  it('should return userId when authentication is successful with Vercel headers', async () => {
+    // Arrange
+    const headers = new Headers();
+    headers.set(
+      'x-vercel-sc-headers',
+      JSON.stringify({
+        Authorization: 'Bearer mock-token',
+      })
+    );
+    mockRequest = new NextRequest('https://example.com', { headers });
+
+    // Reset mockToAuth for this test
+    mockToAuth = vi.fn().mockReturnValue({ userId: mockUserId });
+    mockAuthenticateRequest.mockResolvedValue({ toAuth: mockToAuth });
+
+    // Act
+    const result = await getUserId(mockRequest);
+
+    // Assert
+    expect(result).toEqual(mockUserId);
+    expect(mockToAuth).toHaveBeenCalled();
+  });
+
+  it('should throw an error when no authorization header is present in any location', async () => {
     // Arrange
     mockRequest = new NextRequest('https://example.com');
 
@@ -87,18 +131,33 @@ describe('getUserId', () => {
       'Unauthorized: Missing authorization header'
     );
     expect(log.error).toHaveBeenCalledWith(
-      'Unauthorized: No authorization header provided'
+      'Unauthorized: No authorization header provided in any location'
+    );
+    expect(createClerkClient).not.toHaveBeenCalled();
+  });
+
+  it('should throw an error when x-vercel-sc-headers is invalid JSON', async () => {
+    // Arrange
+    const headers = new Headers();
+    headers.set('x-vercel-sc-headers', 'invalid-json');
+    mockRequest = new NextRequest('https://example.com', { headers });
+
+    // Act & Assert
+    await expect(getUserId(mockRequest)).rejects.toThrow(
+      'Unauthorized: Missing authorization header'
+    );
+    expect(log.error).toHaveBeenCalledWith(
+      'Failed to parse x-vercel-sc-headers:',
+      expect.any(Error)
     );
     expect(createClerkClient).not.toHaveBeenCalled();
   });
 
   it('should throw an error when authorization header has invalid format', async () => {
-    // Arrange - Create request with invalid authorization header format
-    mockRequest = new NextRequest('https://example.com', {
-      headers: {
-        authorization: 'InvalidFormat mock-token',
-      },
-    });
+    // Arrange
+    const headers = new Headers();
+    headers.set('authorization', 'InvalidFormat mock-token');
+    mockRequest = new NextRequest('https://example.com', { headers });
 
     // Act & Assert
     await expect(getUserId(mockRequest)).rejects.toThrow(
@@ -111,13 +170,26 @@ describe('getUserId', () => {
   });
 
   it('should throw an error when token is empty', async () => {
-    // Arrange - Create request with empty token but still valid format
-    // Note: The implementation actually treats 'Bearer ' as an invalid format rather than empty token
-    mockRequest = new NextRequest('https://example.com', {
-      headers: {
-        authorization: 'Bearer ',
-      },
-    });
+    // Arrange
+    const headers = new Headers();
+    headers.set('authorization', 'Bearer ');
+    mockRequest = new NextRequest('https://example.com', { headers });
+
+    // Act & Assert
+    await expect(getUserId(mockRequest)).rejects.toThrow(
+      'Unauthorized: Invalid authorization header format'
+    );
+    expect(log.error).toHaveBeenCalledWith(
+      'Unauthorized: Invalid authorization header format'
+    );
+    expect(createClerkClient).not.toHaveBeenCalled();
+  });
+
+  it('should throw an error when token is whitespace only', async () => {
+    // Arrange
+    const headers = new Headers();
+    headers.set('authorization', 'Bearer    ');
+    mockRequest = new NextRequest('https://example.com', { headers });
 
     // Act & Assert
     await expect(getUserId(mockRequest)).rejects.toThrow(
@@ -130,7 +202,7 @@ describe('getUserId', () => {
   });
 
   it('should throw an error when userId is not returned', async () => {
-    // Arrange - Create a new mockToAuth that returns a null userId
+    // Arrange
     const nullUserIdAuth = vi.fn().mockReturnValue({ userId: null });
     mockAuthenticateRequest.mockResolvedValueOnce({ toAuth: nullUserIdAuth });
 
@@ -162,7 +234,7 @@ describe('getUserId', () => {
   });
 
   it('should handle non-Error objects from Clerk authentication', async () => {
-    // Arrange - Simulate a non-Error object being thrown
+    // Arrange
     const nonErrorObject = 'Just a string error';
     mockAuthenticateRequest.mockRejectedValueOnce(nonErrorObject);
 
@@ -178,7 +250,7 @@ describe('getUserId', () => {
   });
 
   it('should handle empty auth object', async () => {
-    // Arrange - Create a mock that returns undefined after toAuth() is called
+    // Arrange
     const emptyAuthFn = vi.fn().mockReturnValue(undefined);
     mockAuthenticateRequest.mockResolvedValueOnce({ toAuth: emptyAuthFn });
 
@@ -188,6 +260,21 @@ describe('getUserId', () => {
     );
     expect(log.error).toHaveBeenCalledWith(
       'Unauthorized: Valid token but no userId returned'
+    );
+  });
+
+  it('should log error details when an unexpected error occurs', async () => {
+    // Arrange
+    const mockError = new Error('Clerk error message');
+    mockAuthenticateRequest.mockRejectedValueOnce(mockError);
+
+    // Act & Assert
+    await expect(getUserId(mockRequest)).rejects.toThrow(
+      'Unauthorized: Authentication failed - Clerk error message'
+    );
+    expect(log.error).toHaveBeenCalledWith(
+      'Clerk authentication error:',
+      mockError
     );
   });
 });
