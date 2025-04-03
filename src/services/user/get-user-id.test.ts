@@ -67,6 +67,23 @@ describe('getUserId', () => {
     vi.resetAllMocks();
   });
 
+  it('should return userId when provided directly in headers', async () => {
+    // Arrange
+    const headers = new Headers();
+    headers.set('x-user-id', 'direct-user-id');
+    mockRequest = new NextRequest('https://example.com', { headers });
+
+    // Act
+    const result = await getUserId(mockRequest);
+
+    // Assert
+    expect(result).toEqual('direct-user-id');
+    expect(log.info).toHaveBeenCalledWith(
+      'Using direct userId from request headers'
+    );
+    expect(createClerkClient).not.toHaveBeenCalled();
+  });
+
   it('should return userId when authentication is successful with lowercase authorization header', async () => {
     // Act
     const result = await getUserId(mockRequest);

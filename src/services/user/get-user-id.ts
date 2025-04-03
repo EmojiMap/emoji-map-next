@@ -5,7 +5,14 @@ import { log } from '@/utils/log';
 
 export async function getUserId(request: NextRequest) {
   try {
-    // First try to get the authorization header directly
+    // First check if userId is directly available in the request
+    const directUserId = request.headers.get('x-user-id');
+    if (directUserId) {
+      log.info('Using direct userId from request headers');
+      return directUserId;
+    }
+
+    // Then try to get the authorization header directly
     let authHeader = request.headers.get('authorization');
     if (!authHeader) {
       authHeader = request.headers.get('Authorization');
