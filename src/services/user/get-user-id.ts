@@ -5,13 +5,30 @@ import { log } from '@/utils/log';
 
 export async function getUserId(request: NextRequest) {
   try {
+    // First try to get the authorization header directly
     let authHeader = request.headers.get('authorization');
     if (!authHeader) {
       authHeader = request.headers.get('Authorization');
-      if (!authHeader) {
-        log.error('Unauthorized: No authorization header provided');
-        throw new Error('Unauthorized: Missing authorization header');
+    }
+
+    // If not found, check the Vercel-specific header
+    if (!authHeader) {
+      const vercelHeaders = request.headers.get('x-vercel-sc-headers');
+      if (vercelHeaders) {
+        try {
+          const headers = JSON.parse(vercelHeaders);
+          authHeader = headers.Authorization;
+        } catch (error) {
+          log.error('Failed to parse x-vercel-sc-headers:', error);
+        }
       }
+    }
+
+    if (!authHeader) {
+      log.error(
+        'Unauthorized: No authorization header provided in any location'
+      );
+      throw new Error('Unauthorized: Missing authorization header');
     }
 
     // Check if the authorization header has the right format
