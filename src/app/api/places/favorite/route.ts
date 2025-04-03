@@ -13,6 +13,54 @@ type FavoriteResponse = {
   action: 'added' | 'removed';
 };
 
+/**
+ * @description API endpoint for managing place favorites
+ *
+ * @example POST Request - Add/Remove Favorite
+ * POST /api/places/favorite
+ * {
+ *   "placeId": "ChIJN1t_tDeuEmsRUsoyG83frY4" // Place ID
+ * }
+ *
+ * @example POST Success Response - Add Favorite
+ * {
+ *   "message": "Favorite added",
+ *   "favorite": {
+ *     "id": "cl9z...",
+ *     "userId": "user_2...",
+ *     "placeId": "ChIJN1t_tDeuEmsRUsoyG83frY4",
+ *     "createdAt": "2024-01-15T...",
+ *     "updatedAt": "2024-01-15T..."
+ *   },
+ *   "action": "added"
+ * }
+ *
+ * @example POST Success Response - Remove Favorite
+ * {
+ *   "message": "Favorite removed",
+ *   "favorite": null,
+ *   "action": "removed"
+ * }
+ *
+ * @example GET Request
+ * GET /api/places/favorite?id=ChIJN1t_tDeuEmsRUsoyG83frY4
+ *
+ * @example GET Success Response
+ * {
+ *   "favorite": {
+ *     "id": "cl9z...",
+ *     "userId": "user_2...",
+ *     "placeId": "ChIJN1t_tDeuEmsRUsoyG83frY4",
+ *     "createdAt": "2024-01-15T...",
+ *     "updatedAt": "2024-01-15T..."
+ *   }
+ * }
+ *
+ * @example Error Response
+ * {
+ *   "error": "Error message"
+ * }
+ */
 export async function POST(
   request: NextRequest
 ): Promise<NextResponse<FavoriteResponse | ErrorResponse>> {
@@ -160,6 +208,22 @@ type GetFavoriteResponse = {
   isFavorite: boolean;
 };
 
+/**
+ * @description API endpoint for getting favorite status of a place
+ *
+ * @example GET Request
+ * GET /api/places/favorite?id=ChIJN1t_tDeuEmsRUsoyG83frY4
+ *
+ * @example GET Success Response
+ * {
+ *   "isFavorite": true
+ * }
+ *
+ * @example Error Response
+ * {
+ *   "error": "Error message"
+ * }
+ */
 export async function GET(
   request: NextRequest
 ): Promise<NextResponse<GetFavoriteResponse | ErrorResponse>> {

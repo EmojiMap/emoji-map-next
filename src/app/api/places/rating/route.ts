@@ -14,6 +14,75 @@ type RatingResponse = {
   action: 'added' | 'removed' | 'updated';
 };
 
+/**
+ * POST /api/places/rating
+ *
+ * Rate a place or remove an existing rating
+ *
+ * @example
+ * // Add or update rating
+ * const response = await fetch('/api/places/rating', {
+ *   method: 'POST',
+ *   body: JSON.stringify({
+ *     placeId: 'ChIJN1t_tDeuEmsRUsoyG83frY4',
+ *     rating: 4
+ *   })
+ * });
+ *
+ * // Response
+ * {
+ *   "message": "Rating added successfully",
+ *   "rating": {
+ *     "id": "cl9z...",
+ *     "placeId": "ChIJN1t_tDeuEmsRUsoyG83frY4",
+ *     "userId": "user_2...",
+ *     "rating": 4,
+ *     "createdAt": "2023-01-01T00:00:00.000Z",
+ *     "updatedAt": "2023-01-01T00:00:00.000Z"
+ *   },
+ *   "action": "added"
+ * }
+ *
+ * @example
+ * // Remove rating
+ * const response = await fetch('/api/places/rating', {
+ *   method: 'POST',
+ *   body: JSON.stringify({
+ *     placeId: 'ChIJN1t_tDeuEmsRUsoyG83frY4'
+ *   })
+ * });
+ *
+ * // Response
+ * {
+ *   "message": "Rating removed successfully",
+ *   "rating": null,
+ *   "action": "removed"
+ * }
+ *
+ * @example
+ * // Remove rating
+ * const response = await fetch('/api/places/rating', {
+ *   method: 'POST',
+ *   body: JSON.stringify({
+ *     placeId: 'ChIJN1t_tDeuEmsRUsoyG83frY4',
+ *     rating: 0
+ *   })
+ * });
+ *
+ * // Response
+ * {
+ *   "message": "Rating removed successfully",
+ *   "rating": null,
+ *   "action": "removed"
+ * }
+ *
+ * @example
+ * // Error response
+ * {
+ *   "error": "Place ID is required"
+ * }
+ */
+
 export async function POST(
   request: NextRequest
 ): Promise<NextResponse<RatingResponse | ErrorResponse>> {
@@ -128,15 +197,12 @@ export async function POST(
       log.debug('[RATING] Prior rating exists');
 
       // If rating is not provided, remove the rating
-      if (isNull(userRating) || isUndefined(userRating)) {
-        log.debug('[RATING] Rating is being removed');
-        rating = await prisma.rating.delete({
-          where: { id: existingRating.id },
-        });
-        action = 'removed';
-      }
-      // If rating is being updated to the same rating, delete the rating
-      else if (existingRating.rating === userRating) {
+      if (
+        isNull(userRating) ||
+        isUndefined(userRating) ||
+        userRating === 0 ||
+        existingRating.rating === userRating
+      ) {
         log.debug('[RATING] Rating is being removed');
         rating = await prisma.rating.delete({
           where: { id: existingRating.id },
@@ -201,6 +267,23 @@ export async function POST(
 type GetRatingResponse = {
   rating: number | null;
 };
+
+/**
+ * @description API endpoint for getting rating of a place
+ *
+ * @example GET Request
+ * GET /api/places/rating?id=ChIJN1t_tDeuEmsRUsoyG83frY4
+ *
+ * @example GET Success Response
+ * {
+ *   "rating": 4 // Rating value (1-5), or null to remove rating
+ * }
+ *
+ * @example Error Response
+ * {
+ *   "error": "Error message"
+ * }
+ */
 
 export async function GET(
   request: NextRequest

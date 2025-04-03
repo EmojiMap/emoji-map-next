@@ -58,17 +58,18 @@ export function transformDetailsData(
     userRatingCount: data.userRatingCount || 0,
 
     // Following fields are for backwards compatibility with the old API
-    displayName: data.displayName?.text || '',
+    displayName: data.displayName?.text || '', // Done in v1.0.5
+    // Actually dont have to do anything to the client, since it sets this from the /api/places/search endpoint response which still returns the old location object
     location: {
       latitude: data.location.latitude,
       longitude: data.location.longitude,
     },
-    rating: data.rating || 0,
+    rating: data.rating || 0, // Done in v1.0.5
     paymentOptions: {
       acceptsCreditCards: data.paymentOptions?.acceptsCreditCards || false,
       acceptsDebitCards: data.paymentOptions?.acceptsDebitCards || false,
       acceptsCashOnly: data.paymentOptions?.acceptsCashOnly || false,
-    },
+    }, // Done in v1.0.5
   };
 
   return normalizedData;
