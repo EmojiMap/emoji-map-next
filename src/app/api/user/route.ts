@@ -13,9 +13,6 @@ export async function GET(
   try {
     const userId = await getUserId(request);
 
-    // check if user exists in our database
-    log.info(`Looking for user ${userId} in database...`);
-
     try {
       const dbUser = await prisma.user.findUnique({
         where: { id: userId },
@@ -26,7 +23,7 @@ export async function GET(
       });
 
       if (!dbUser) {
-        log.error(`User ${userId} not found in database`);
+        log.error(`[USER] User ${userId} not found in database`);
         return NextResponse.json(
           {
             error: 'User not found in database',
@@ -37,7 +34,7 @@ export async function GET(
         );
       }
 
-      log.info(`User ${userId} found, returning data`);
+      log.info(`[USER] User ${userId} found, returning data`);
       // Make sure we're returning the exact structure expected by the Zod schema
       return NextResponse.json(
         {
@@ -48,7 +45,7 @@ export async function GET(
         }
       );
     } catch (dbError) {
-      log.error('Database error when fetching user:', dbError);
+      log.error('[USER] Database error when fetching user:', dbError);
       return NextResponse.json(
         {
           error: 'Database error',
@@ -62,7 +59,7 @@ export async function GET(
       );
     }
   } catch (error) {
-    log.error('Unexpected error in /api/user:', error);
+    log.error('[USER] Unexpected error in /api/user:', error);
     return NextResponse.json(
       {
         error: 'Failed to fetch user',
@@ -87,7 +84,7 @@ export async function DELETE(
     const userId = await getUserId(request);
 
     // check if user exists in our database
-    log.info(`Looking for user ${userId} in database...`);
+    log.info(`[USER] Looking for user ${userId} in database...`);
 
     try {
       const dbUser = await prisma.user.findUnique({
@@ -95,7 +92,7 @@ export async function DELETE(
       });
 
       if (!dbUser) {
-        log.error(`User ${userId} not found in database`);
+        log.error(`[USER] User ${userId} not found in database`);
         return NextResponse.json(
           {
             error: 'User not found in database',
@@ -119,7 +116,7 @@ export async function DELETE(
         { status: 200 }
       );
     } catch (dbError) {
-      log.error('Database error when fetching user:', dbError);
+      log.error('[USER] Database error when fetching user:', dbError);
       return NextResponse.json(
         {
           error: 'Database error',
@@ -133,7 +130,7 @@ export async function DELETE(
       );
     }
   } catch (error) {
-    log.error('Unexpected error in /api/user/delete:', error);
+    log.error('[USER] Unexpected error in /api/user/delete:', error);
     return NextResponse.json(
       {
         error: 'Unexpected error',
@@ -151,6 +148,8 @@ export async function PATCH(request: NextRequest) {
 
     const { email, firstName, lastName } = await request.json();
 
+    log.info('[USER] PATCH', { userId, email, firstName, lastName });
+
     const client = await clerkClient();
     // update email first
     await client.emailAddresses.createEmailAddress({
@@ -162,6 +161,7 @@ export async function PATCH(request: NextRequest) {
 
     // update name if provided
     if (firstName || lastName) {
+      log.info('[USER] Updating name', { userId, firstName, lastName });
       await client.users.updateUser(userId, {
         firstName,
         lastName,
@@ -174,7 +174,7 @@ export async function PATCH(request: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    log.error('Unexpected error in /api/user/patch:', error);
+    log.error('[USER] Unexpected error in /api/user/patch:', error);
     return NextResponse.json(
       {
         error: 'Unexpected error',

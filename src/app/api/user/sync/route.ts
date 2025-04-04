@@ -33,13 +33,7 @@ export async function POST(
   request: NextRequest
 ): Promise<NextResponse<UserResponse | ErrorResponse>> {
   try {
-    log.info('Syncing user', {
-      request,
-    });
-
     const userId = await getUserId(request);
-
-    log.info('Syncing user', { userId });
 
     // check if user exists in our database
     const dbUser = await prisma.user.findUnique({
@@ -50,12 +44,12 @@ export async function POST(
       },
     });
 
-    log.info('User found in database', { dbUser });
+    log.info('[USER SYNC] User found in database', { dbUser });
 
     // Dont create one if they dont exist, webhook should handle that
     // instead of creating a new user, we should just return an error
     if (!dbUser) {
-      log.error('User not found in database');
+      log.error('[USER SYNC] User not found in database');
       return NextResponse.json(
         { error: 'User not found in database' },
         { status: 404 }
@@ -66,8 +60,8 @@ export async function POST(
     const favorites = params?.favorites;
     const ratings = params?.ratings;
 
-    log.info('Favorites', { favorites });
-    log.info('Ratings', { ratings });
+    log.info('[USER SYNC] Favorites', { favorites });
+    log.info('[USER SYNC] Ratings', { ratings });
 
     // Track what was processed
     const result = {
@@ -81,7 +75,9 @@ export async function POST(
       const validateResult = favoritesSchema.safeParse(favorites);
 
       if (!validateResult.success) {
-        log.error('Invalid favorites', { error: validateResult.error });
+        log.error('[USER SYNC] Invalid favorites', {
+          error: validateResult.error,
+        });
         return NextResponse.json(
           { error: 'Invalid favorites' },
           { status: 400 }
@@ -163,7 +159,7 @@ export async function POST(
               });
             }
           } catch (error) {
-            log.error('Error creating place', { error, placeId });
+            log.error('[USER SYNC] Error creating place', { error, placeId });
             result.favorites.errors++;
           }
         }
@@ -208,7 +204,9 @@ export async function POST(
       const validateResult = ratingsSchema.safeParse(ratings);
 
       if (!validateResult.success) {
-        log.error('Invalid ratings', { error: validateResult.error });
+        log.error('[USER SYNC] Invalid ratings', {
+          error: validateResult.error,
+        });
         return NextResponse.json({ error: 'Invalid ratings' }, { status: 400 });
       }
 
@@ -287,7 +285,7 @@ export async function POST(
               });
             }
           } catch (error) {
-            log.error('Error creating place', { error, placeId });
+            log.error('[USER SYNC] Error creating place', { error, placeId });
             result.ratings.errors++;
           }
         }
@@ -331,7 +329,7 @@ export async function POST(
               }
             } catch (error) {
               result.ratings.errors++;
-              log.error('Error upserting rating', {
+              log.error('[USER SYNC] Error upserting rating', {
                 error,
                 userId,
                 placeId: rating.placeId,
@@ -352,7 +350,7 @@ export async function POST(
     });
 
     if (!updatedUser) {
-      log.error('Failed to fetch updated user data');
+      log.error('[USER SYNC] Failed to fetch updated user data');
       return NextResponse.json(
         { error: 'Failed to fetch updated user data' },
         { status: 500 }
@@ -364,7 +362,7 @@ export async function POST(
     if (error instanceof Error && error.message === 'Not authenticated') {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
-    log.error('Error syncing user', { error });
+    log.error('[USER SYNC] Error syncing user', { error });
     return NextResponse.json({ error: 'Error syncing user' }, { status: 500 });
   }
 }

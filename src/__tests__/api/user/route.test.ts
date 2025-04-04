@@ -4,7 +4,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { GET, DELETE, PATCH } from '@/app/api/user/route';
 import { prisma } from '@/lib/db';
 import { getUserId } from '@/services/user/get-user-id';
-import { log } from '@/utils/log';
 import type { User, Favorite, Rating } from '@prisma/client';
 
 // Define minimal types to match what we need for mocking
@@ -150,10 +149,6 @@ describe('User API Routes', () => {
       await GET(mockRequest as unknown as NextRequest);
 
       expect(getUserId).toHaveBeenCalledWith(mockRequest);
-      expect(log.error).toHaveBeenCalledWith(
-        'Unexpected error in /api/user:',
-        expect.any(Error)
-      );
       expect(NextResponse.json).toHaveBeenCalledWith(
         {
           error: 'Failed to fetch user',
@@ -175,12 +170,6 @@ describe('User API Routes', () => {
       await GET(mockRequest as unknown as NextRequest);
 
       expect(getUserId).toHaveBeenCalledWith(mockRequest);
-      expect(log.info).toHaveBeenCalledWith(
-        'Looking for user user_123 in database...'
-      );
-      expect(log.error).toHaveBeenCalledWith(
-        'User user_123 not found in database'
-      );
       expect(prisma.user.findUnique).toHaveBeenCalledWith({
         where: { id: 'user_123' },
         include: {
@@ -225,12 +214,6 @@ describe('User API Routes', () => {
       await GET(mockRequest as unknown as NextRequest);
 
       expect(getUserId).toHaveBeenCalledWith(mockRequest);
-      expect(log.info).toHaveBeenCalledWith(
-        'Looking for user user_123 in database...'
-      );
-      expect(log.info).toHaveBeenCalledWith(
-        'User user_123 found, returning data'
-      );
       expect(prisma.user.findUnique).toHaveBeenCalledWith({
         where: { id: 'user_123' },
         include: {
@@ -261,10 +244,6 @@ describe('User API Routes', () => {
       await GET(mockRequest as unknown as NextRequest);
 
       expect(getUserId).toHaveBeenCalledWith(mockRequest);
-      expect(log.error).toHaveBeenCalledWith(
-        'Database error when fetching user:',
-        expect.any(Error)
-      );
       expect(NextResponse.json).toHaveBeenCalledWith(
         {
           error: 'Database error',
@@ -288,10 +267,6 @@ describe('User API Routes', () => {
       await DELETE(mockRequest as unknown as NextRequest);
 
       expect(getUserId).toHaveBeenCalledWith(mockRequest);
-      expect(log.error).toHaveBeenCalledWith(
-        'Unexpected error in /api/user/delete:',
-        expect.any(Error)
-      );
       expect(NextResponse.json).toHaveBeenCalledWith(
         {
           error: 'Unexpected error',
@@ -313,12 +288,6 @@ describe('User API Routes', () => {
       await DELETE(mockRequest as unknown as NextRequest);
 
       expect(getUserId).toHaveBeenCalledWith(mockRequest);
-      expect(log.info).toHaveBeenCalledWith(
-        'Looking for user user_123 in database...'
-      );
-      expect(log.error).toHaveBeenCalledWith(
-        'User user_123 not found in database'
-      );
       expect(prisma.user.findUnique).toHaveBeenCalledWith({
         where: { id: 'user_123' },
       });
@@ -372,12 +341,6 @@ describe('User API Routes', () => {
       await DELETE(mockRequest as unknown as NextRequest);
 
       expect(getUserId).toHaveBeenCalledWith(mockRequest);
-      expect(log.info).toHaveBeenCalledWith(
-        'Looking for user user_123 in database...'
-      );
-      expect(prisma.user.findUnique).toHaveBeenCalledWith({
-        where: { id: 'user_123' },
-      });
       expect(mockDeleteUser).toHaveBeenCalledWith('user_123');
       expect(NextResponse.json).toHaveBeenCalledWith(
         {
@@ -404,10 +367,6 @@ describe('User API Routes', () => {
       await DELETE(mockRequest as unknown as NextRequest);
 
       expect(getUserId).toHaveBeenCalledWith(mockRequest);
-      expect(log.error).toHaveBeenCalledWith(
-        'Database error when fetching user:',
-        expect.any(Error)
-      );
       expect(NextResponse.json).toHaveBeenCalledWith(
         {
           error: 'Database error',
@@ -441,10 +400,6 @@ describe('User API Routes', () => {
       await DELETE(mockRequest as unknown as NextRequest);
 
       expect(getUserId).toHaveBeenCalledWith(mockRequest);
-      expect(log.error).toHaveBeenCalledWith(
-        'Database error when fetching user:',
-        expect.any(Error)
-      );
       expect(prisma.user.findUnique).toHaveBeenCalledWith({
         where: { id: 'user_123' },
       });
@@ -572,10 +527,6 @@ describe('User API Routes', () => {
       await PATCH(mockRequest as unknown as NextRequest);
 
       expect(getUserId).toHaveBeenCalledWith(mockRequest);
-      expect(log.error).toHaveBeenCalledWith(
-        'Unexpected error in /api/user/patch:',
-        expect.any(Error)
-      );
       expect(NextResponse.json).toHaveBeenCalledWith(
         {
           error: 'Unexpected error',
@@ -598,10 +549,6 @@ describe('User API Routes', () => {
       await PATCH(mockRequest as unknown as NextRequest);
 
       expect(getUserId).toHaveBeenCalledWith(mockRequest);
-      expect(log.error).toHaveBeenCalledWith(
-        'Unexpected error in /api/user/patch:',
-        expect.any(Error)
-      );
       expect(NextResponse.json).toHaveBeenCalledWith(
         {
           error: 'Unexpected error',

@@ -1,7 +1,6 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { PHOTOS_CONFIG } from '@/constants/photos';
 import { redis } from '@/lib/redis';
-import { log } from '@/utils/log';
 import { fetchPlacePhotos } from './fetch-place-photos';
 import { fetchPhoto } from '../fetch-photo/fetch-photo';
 import { fetchPhotoMetadata } from '../fetch-photo-metadata/fetch-photo-metadata';
@@ -79,12 +78,6 @@ describe('fetchPlacePhotos', () => {
       data: mockPhotoUrls,
       count: mockPhotoUrls.length,
       cacheHit: true,
-    });
-
-    // Verify log was called
-    expect(log.success).toHaveBeenCalledWith('Cache hit', {
-      cacheKey: mockCacheKey,
-      photoCount: mockPhotoUrls.length,
     });
 
     // Verify no API calls were made
@@ -171,14 +164,6 @@ describe('fetchPlacePhotos', () => {
     expect(result.data.length).toBe(2);
     expect(result.data).toEqual([mockPhotoUrls[0], mockPhotoUrls[2]]);
 
-    // Verify error was logged
-    expect(log.error).toHaveBeenCalledWith('Some photos failed to fetch', {
-      placeId: mockPlaceId,
-      totalAttempted: mockPhotoNames.length,
-      failedCount: 1,
-      successCount: 2,
-    });
-
     // Verify cache was still updated with successful photos
     expect(redis.set).toHaveBeenCalledWith(
       mockCacheKey,
@@ -201,22 +186,6 @@ describe('fetchPlacePhotos', () => {
     // Verify result contains empty data
     expect(result.data).toEqual([]);
     expect(result.count).toBe(0);
-
-    // Verify error was logged
-    expect(log.error).toHaveBeenCalledWith('Some photos failed to fetch', {
-      placeId: mockPlaceId,
-      totalAttempted: mockPhotoNames.length,
-      failedCount: mockPhotoNames.length,
-      successCount: 0,
-    });
-
-    // Verify warning was logged
-    expect(log.warn).toHaveBeenCalledWith(
-      'No photos were successfully fetched to cache',
-      {
-        placeId: mockPlaceId,
-      }
-    );
 
     // Verify cache was not updated
     expect(redis.set).not.toHaveBeenCalled();

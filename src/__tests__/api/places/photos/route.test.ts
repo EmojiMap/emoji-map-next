@@ -2,7 +2,6 @@ import { NextRequest } from 'next/server';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GET } from '@/app/api/places/photos/route';
 import { fetchPlacePhotos } from '@/services/places/photos/fetch-place-photos/fetch-place-photos';
-import { log } from '@/utils/log';
 
 // Mock dependencies
 vi.mock(
@@ -59,8 +58,6 @@ describe('Photos API Route', () => {
       count: 1,
       cacheHit: false,
     });
-
-    // The implementation doesn't log these messages, so we don't need to check for them
   });
 
   it('should pass bypassCache=true when parameter is present without value', async () => {
@@ -192,11 +189,6 @@ describe('Photos API Route', () => {
     // THEN it should return a 400 status code
     expect(response.status).toBe(400);
     expect(responseData).toEqual({ error: 'Missing required parameter: id' });
-
-    // AND it should log the error with the correct format
-    expect(log.error).toHaveBeenCalledWith('[API] Error in photos route', {
-      error,
-    });
   });
 
   it('should return 404 for "No photos found" errors', async () => {

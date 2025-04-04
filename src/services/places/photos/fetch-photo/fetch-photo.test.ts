@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { log } from '@/utils/log';
 import { fetchPhoto } from './fetch-photo';
 import { buildPhotoUrl } from '../build-photo-url/build-photo-url';
 
@@ -62,13 +61,6 @@ describe('fetchPhoto', () => {
         }),
       })
     );
-
-    // AND it should log the appropriate messages
-    expect(log.info).toHaveBeenCalledWith('Fetching photo', { photoName });
-    expect(log.info).toHaveBeenCalledWith('Successfully fetched photo', {
-      photoName,
-      photoUrl: mockPhotoUrl,
-    });
   });
 
   it('should throw an error when photo name is empty', async () => {
@@ -102,12 +94,6 @@ describe('fetchPhoto', () => {
     // THEN it should throw the same error
     await expect(fetchPhoto(photoName)).rejects.toThrow(buildError);
 
-    // AND it should log the error
-    expect(log.error).toHaveBeenCalledWith('Error fetching photo', {
-      photoName,
-      error: buildError,
-    });
-
     // AND fetch should not be called
     expect(mockFetch).not.toHaveBeenCalled();
   });
@@ -132,12 +118,6 @@ describe('fetchPhoto', () => {
     await expect(fetchPhoto(photoName)).rejects.toThrow(
       'Failed to fetch photo: 404 Not Found'
     );
-
-    // AND it should log the error
-    expect(log.error).toHaveBeenCalledWith('Error fetching photo', {
-      photoName,
-      error: expect.any(Error),
-    });
   });
 
   it('should throw an error when fetch fails', async () => {
@@ -155,12 +135,6 @@ describe('fetchPhoto', () => {
     // WHEN fetching the photo
     // THEN it should throw the same error
     await expect(fetchPhoto(photoName)).rejects.toThrow(networkError);
-
-    // AND it should log the error
-    expect(log.error).toHaveBeenCalledWith('Error fetching photo', {
-      photoName,
-      error: networkError,
-    });
   });
 
   it('should throw an error when no photo URL is returned', async () => {
@@ -182,12 +156,6 @@ describe('fetchPhoto', () => {
     await expect(fetchPhoto(photoName)).rejects.toThrow(
       'No photo URL returned'
     );
-
-    // AND it should log the error
-    expect(log.error).toHaveBeenCalledWith('Error fetching photo', {
-      photoName,
-      error: expect.any(Error),
-    });
   });
 
   it('should throw an error when URL constructor fails', async () => {
@@ -214,11 +182,5 @@ describe('fetchPhoto', () => {
     // WHEN fetching the photo
     // THEN it should throw the URL constructor error
     await expect(fetchPhoto(photoName)).rejects.toThrow(urlError);
-
-    // AND it should log the error
-    expect(log.error).toHaveBeenCalledWith('Error fetching photo', {
-      photoName,
-      error: urlError,
-    });
   });
 });

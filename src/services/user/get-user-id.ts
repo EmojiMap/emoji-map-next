@@ -8,7 +8,7 @@ export async function getUserId(request: NextRequest) {
     // First check if userId is directly available in the request
     const directUserId = request.headers.get('x-user-id');
     if (directUserId) {
-      log.info('Using direct userId from request headers');
+      log.info('[GET USER ID] Using direct userId from request headers');
       return directUserId;
     }
 
@@ -26,28 +26,33 @@ export async function getUserId(request: NextRequest) {
           const headers = JSON.parse(vercelHeaders);
           authHeader = headers.Authorization;
         } catch (error) {
-          log.error('Failed to parse x-vercel-sc-headers:', error);
+          log.error(
+            '[GET USER ID] Failed to parse x-vercel-sc-headers:',
+            error
+          );
         }
       }
     }
 
     if (!authHeader) {
       log.error(
-        'Unauthorized: No authorization header provided in any location'
+        '[GET USER ID] Unauthorized: No authorization header provided in any location'
       );
       throw new Error('Unauthorized: Missing authorization header');
     }
 
     // Check if the authorization header has the right format
     if (!authHeader.startsWith('Bearer ')) {
-      log.error('Unauthorized: Invalid authorization header format');
+      log.error(
+        '[GET USER ID] Unauthorized: Invalid authorization header format'
+      );
       throw new Error('Unauthorized: Invalid authorization header format');
     }
 
     // Extract the token
     const token = authHeader.substring(7); // Skip 'Bearer '
     if (!token || token.trim() === '') {
-      log.error('Unauthorized: Empty token provided');
+      log.error('[GET USER ID] Unauthorized: Empty token provided');
       throw new Error('Unauthorized: Empty token provided');
     }
 
@@ -63,7 +68,9 @@ export async function getUserId(request: NextRequest) {
       const userId = authResult.toAuth()?.userId;
 
       if (!userId) {
-        log.error('Unauthorized: Valid token but no userId returned');
+        log.error(
+          '[GET USER ID] Unauthorized: Valid token but no userId returned'
+        );
         throw new Error(
           'Unauthorized: Authentication successful but no user ID found'
         );
@@ -71,7 +78,7 @@ export async function getUserId(request: NextRequest) {
 
       return userId;
     } catch (clerkError) {
-      log.error('Clerk authentication error:', clerkError);
+      log.error('[GET USER ID] Clerk authentication error:', clerkError);
       throw new Error(
         `Unauthorized: Authentication failed - ${
           clerkError instanceof Error
@@ -81,7 +88,7 @@ export async function getUserId(request: NextRequest) {
       );
     }
   } catch (error) {
-    log.error('Error in getUserId:', {
+    log.error('[GET USER ID] Error in getUserId:', {
       error,
       request,
     });

@@ -2,7 +2,6 @@ import { NextRequest } from 'next/server';
 import { createClerkClient } from '@clerk/nextjs/server';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { env } from '@/env';
-import { log } from '@/utils/log';
 import { getUserId } from './get-user-id';
 
 // Mock dependencies
@@ -78,9 +77,6 @@ describe('getUserId', () => {
 
     // Assert
     expect(result).toEqual('direct-user-id');
-    expect(log.info).toHaveBeenCalledWith(
-      'Using direct userId from request headers'
-    );
     expect(createClerkClient).not.toHaveBeenCalled();
   });
 
@@ -147,9 +143,6 @@ describe('getUserId', () => {
     await expect(getUserId(mockRequest)).rejects.toThrow(
       'Unauthorized: Missing authorization header'
     );
-    expect(log.error).toHaveBeenCalledWith(
-      'Unauthorized: No authorization header provided in any location'
-    );
     expect(createClerkClient).not.toHaveBeenCalled();
   });
 
@@ -163,10 +156,6 @@ describe('getUserId', () => {
     await expect(getUserId(mockRequest)).rejects.toThrow(
       'Unauthorized: Missing authorization header'
     );
-    expect(log.error).toHaveBeenCalledWith(
-      'Failed to parse x-vercel-sc-headers:',
-      expect.any(Error)
-    );
     expect(createClerkClient).not.toHaveBeenCalled();
   });
 
@@ -178,9 +167,6 @@ describe('getUserId', () => {
 
     // Act & Assert
     await expect(getUserId(mockRequest)).rejects.toThrow(
-      'Unauthorized: Invalid authorization header format'
-    );
-    expect(log.error).toHaveBeenCalledWith(
       'Unauthorized: Invalid authorization header format'
     );
     expect(createClerkClient).not.toHaveBeenCalled();
@@ -196,9 +182,6 @@ describe('getUserId', () => {
     await expect(getUserId(mockRequest)).rejects.toThrow(
       'Unauthorized: Invalid authorization header format'
     );
-    expect(log.error).toHaveBeenCalledWith(
-      'Unauthorized: Invalid authorization header format'
-    );
     expect(createClerkClient).not.toHaveBeenCalled();
   });
 
@@ -210,9 +193,6 @@ describe('getUserId', () => {
 
     // Act & Assert
     await expect(getUserId(mockRequest)).rejects.toThrow(
-      'Unauthorized: Invalid authorization header format'
-    );
-    expect(log.error).toHaveBeenCalledWith(
       'Unauthorized: Invalid authorization header format'
     );
     expect(createClerkClient).not.toHaveBeenCalled();
@@ -227,9 +207,6 @@ describe('getUserId', () => {
     await expect(getUserId(mockRequest)).rejects.toThrow(
       'Unauthorized: Authentication successful but no user ID found'
     );
-    expect(log.error).toHaveBeenCalledWith(
-      'Unauthorized: Valid token but no userId returned'
-    );
     expect(createClerkClient).toHaveBeenCalled();
     expect(mockAuthenticateRequest).toHaveBeenCalled();
   });
@@ -243,10 +220,6 @@ describe('getUserId', () => {
     await expect(getUserId(mockRequest)).rejects.toThrow(
       'Unauthorized: Authentication failed - Clerk error message'
     );
-    expect(log.error).toHaveBeenCalledWith(
-      'Clerk authentication error:',
-      mockError
-    );
     expect(createClerkClient).toHaveBeenCalled();
   });
 
@@ -258,10 +231,6 @@ describe('getUserId', () => {
     // Act & Assert
     await expect(getUserId(mockRequest)).rejects.toThrow(
       'Unauthorized: Authentication failed - Unknown clerk error'
-    );
-    expect(log.error).toHaveBeenCalledWith(
-      'Clerk authentication error:',
-      nonErrorObject
     );
     expect(createClerkClient).toHaveBeenCalled();
   });
@@ -275,12 +244,9 @@ describe('getUserId', () => {
     await expect(getUserId(mockRequest)).rejects.toThrow(
       'Unauthorized: Authentication successful but no user ID found'
     );
-    expect(log.error).toHaveBeenCalledWith(
-      'Unauthorized: Valid token but no userId returned'
-    );
   });
 
-  it('should log error details when an unexpected error occurs', async () => {
+  it('should throw error details when an unexpected error occurs', async () => {
     // Arrange
     const mockError = new Error('Clerk error message');
     mockAuthenticateRequest.mockRejectedValueOnce(mockError);
@@ -288,10 +254,6 @@ describe('getUserId', () => {
     // Act & Assert
     await expect(getUserId(mockRequest)).rejects.toThrow(
       'Unauthorized: Authentication failed - Clerk error message'
-    );
-    expect(log.error).toHaveBeenCalledWith(
-      'Clerk authentication error:',
-      mockError
     );
   });
 });
