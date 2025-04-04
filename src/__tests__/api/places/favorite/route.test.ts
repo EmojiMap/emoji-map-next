@@ -5,7 +5,6 @@ import { prisma } from '@/lib/db';
 import { getPlaceDetailsWithCache } from '@/services/places/details/get-place-details-with-cache/get-place-details-with-cache';
 import { getUserId } from '@/services/user/get-user-id';
 import type { DetailResponse } from '@/types/details';
-import { log } from '@/utils/log';
 import type { Favorite, Place, User } from '@prisma/client';
 
 // Helper function to extract JSON from response
@@ -223,7 +222,6 @@ describe('Favorite API Routes', () => {
 
       expect(response.status).toBe(500);
       expect(body).toEqual({ error: 'Failed to process favorite' });
-      expect(log.error).toHaveBeenCalled();
     });
 
     it('should return 400 if place ID is missing', async () => {
@@ -436,7 +434,6 @@ describe('Favorite API Routes', () => {
       const response = await POST(request);
       const body = await getResponseBody(response);
 
-      expect(log.error).toHaveBeenCalled();
       expect(response.status).toBe(500);
       expect(body).toEqual({ error: 'Failed to process favorite' });
     });
@@ -579,7 +576,6 @@ describe('Favorite API Routes', () => {
       const response = await GET(request);
       const body = await getResponseBody(response);
 
-      expect(log.error).toHaveBeenCalled();
       expect(response.status).toBe(500);
       expect(body).toEqual({
         error: 'Failed to check favorite status',

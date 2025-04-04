@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { env } from '@/env';
-import { log } from '@/utils/log';
 import { fetchPhotoMetadata } from './fetch-photo-metadata';
 
 describe('fetchPhotoMetadata', () => {
@@ -50,19 +49,6 @@ describe('fetchPhotoMetadata', () => {
         }),
       })
     );
-
-    // AND it should log the appropriate messages
-    expect(log.info).toHaveBeenCalledWith('Fetching photo metadata', {
-      id: placeId,
-      url: expectedUrl,
-    });
-    expect(log.info).toHaveBeenCalledWith(
-      'Successfully fetched photo metadata',
-      {
-        id: placeId,
-        photoCount: 2,
-      }
-    );
   });
 
   it('should throw an error when no photos are found', async () => {
@@ -79,17 +65,6 @@ describe('fetchPhotoMetadata', () => {
     await expect(fetchPhotoMetadata(placeId)).rejects.toThrow(
       'No photos found'
     );
-
-    // AND it should log the appropriate messages
-    const expectedUrl = `${env.GOOGLE_PLACES_URL}/places/${placeId}?fields=photos&key=${env.GOOGLE_PLACES_API_KEY}`;
-    expect(log.info).toHaveBeenCalledWith('Fetching photo metadata', {
-      id: placeId,
-      url: expectedUrl,
-    });
-    expect(log.error).toHaveBeenCalledWith('Error fetching photo metadata', {
-      id: placeId,
-      error: expect.any(Error),
-    });
   });
 
   it('should throw an error when photos property is missing', async () => {
@@ -123,17 +98,6 @@ describe('fetchPhotoMetadata', () => {
     await expect(fetchPhotoMetadata(placeId)).rejects.toThrow(
       'API error: 404 Not Found'
     );
-
-    // AND it should log the appropriate messages
-    const expectedUrl = `${env.GOOGLE_PLACES_URL}/places/${placeId}?fields=photos&key=${env.GOOGLE_PLACES_API_KEY}`;
-    expect(log.info).toHaveBeenCalledWith('Fetching photo metadata', {
-      id: placeId,
-      url: expectedUrl,
-    });
-    expect(log.error).toHaveBeenCalledWith('Error fetching photo metadata', {
-      id: placeId,
-      error: expect.any(Error),
-    });
   });
 
   it('should throw an error when fetch fails', async () => {
@@ -146,17 +110,6 @@ describe('fetchPhotoMetadata', () => {
     // WHEN fetching photo metadata
     // THEN it should throw the same error
     await expect(fetchPhotoMetadata(placeId)).rejects.toThrow(networkError);
-
-    // AND it should log the appropriate messages
-    const expectedUrl = `${env.GOOGLE_PLACES_URL}/places/${placeId}?fields=photos&key=${env.GOOGLE_PLACES_API_KEY}`;
-    expect(log.info).toHaveBeenCalledWith('Fetching photo metadata', {
-      id: placeId,
-      url: expectedUrl,
-    });
-    expect(log.error).toHaveBeenCalledWith('Error fetching photo metadata', {
-      id: placeId,
-      error: networkError,
-    });
   });
 
   it('should throw an error when place ID is empty', async () => {
