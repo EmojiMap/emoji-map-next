@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { z } from 'zod';
+import { env } from '@/env';
 import { prisma } from '@/lib/db';
 import type { DetailResponse } from '@/types/details';
 import type { ErrorResponse } from '@/types/error-response';
@@ -20,7 +21,9 @@ const MerchantSchema = z.object({
 async function fetchPlaceDetails(
   placeId: string
 ): Promise<DetailResponse['data']> {
-  const response = await fetch(`/api/places/details?id=${placeId}`);
+  const response = await fetch(
+    `${env.NEXT_PUBLIC_SITE_URL}/api/places/details?id=${placeId}`
+  );
 
   if (!response.ok) {
     const errorData = (await response.json()) as ErrorResponse;
@@ -127,10 +130,11 @@ export async function POST(request: NextRequest) {
             userRatingCount: placeDetails.userRatingCount,
             reviews: {
               createMany: {
-                data: placeDetails.reviews.map((review) => ({
-                  ...review,
-                  placeId: placeDetails.id,
-                })),
+                data: placeDetails.reviews.map((review) => {
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                  const { placeId, ...reviewData } = review;
+                  return reviewData;
+                }),
               },
             },
           },
@@ -236,6 +240,99 @@ export async function POST(request: NextRequest) {
         ? 401
         : error.message.includes('already claimed')
         ? 409
+        : 500;
+
+      return createApiResponse(undefined, error.message, status);
+    }
+
+    return createApiResponse(undefined, 'Internal server error', 500);
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    // 1. Validate request parameters
+    const params = await request.json();
+    const validatedParams = MerchantSchema.safeParse(params);
+
+    if (!validatedParams.success) {
+      return createApiResponse(
+        undefined,
+        'Invalid parameters: ' +
+          validatedParams.error.errors.map((e) => e.message).join(', '),
+        400
+      );
+    }
+
+    const { placeId } = validatedParams.data;
+
+    // 2. Authenticate user
+    const { userId } = await auth();
+    if (!userId) {
+      return createApiResponse(undefined, 'Unauthorized', 401);
+    }
+
+    // 3. Process the request within a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Check if user exists
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      // Check if place exists and if the user is its merchant
+      const place = await tx.place.findUnique({
+        where: { id: placeId },
+        include: {
+          merchant: {
+            include: {
+              user: true,
+            },
+          },
+        },
+      });
+
+      if (!place) {
+        throw new Error('Place not found');
+      }
+
+      if (!place.merchantId) {
+        throw new Error('This place has no merchant associated with it');
+      }
+
+      if (place.merchant?.user.id !== userId) {
+        throw new Error(
+          'You are not authorized to remove this merchant association'
+        );
+      }
+
+      // Update the place to remove merchant association
+      const updatedPlace = await tx.place.update({
+        where: { id: placeId },
+        data: {
+          merchantId: null,
+        },
+        include: {
+          merchant: true,
+        },
+      });
+
+      return updatedPlace;
+    });
+
+    return createApiResponse({ place: result });
+  } catch (error) {
+    console.error('Error in merchant/associate:', error);
+
+    if (error instanceof Error) {
+      const status = error.message.includes('not found')
+        ? 404
+        : error.message.includes('Unauthorized') ||
+          error.message.includes('not authorized')
+        ? 401
         : 500;
 
       return createApiResponse(undefined, error.message, status);

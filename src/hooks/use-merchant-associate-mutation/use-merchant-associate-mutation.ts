@@ -51,11 +51,16 @@ async function associateMerchant({
   return data.data;
 }
 
-export function useMerchantAssociateMutation() {
+export function useMerchantAssociateMutation({
+  onSuccess,
+}: {
+  onSuccess?: () => void;
+} = {}) {
   const { getToken } = useAuth();
 
   return useMutation({
     mutationFn: (params: AssociateMerchantParams) =>
       associateMerchant({ ...params, getToken }),
+    onSuccess,
   });
 }
