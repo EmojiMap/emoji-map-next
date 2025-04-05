@@ -6,7 +6,7 @@ import type { DetailResponse } from '@/types/details';
 type UsePlaceDetailsQueryProps = {
   placeId: string;
   bypassCache?: boolean;
-  setLastRequest: (
+  setLastRequest?: (
     value: SetStateAction<{
       url: string;
       params: string;
@@ -38,7 +38,7 @@ export const usePlaceDetailsQuery = ({
       }
 
       // Store the request details for debugging
-      setLastRequest({
+      setLastRequest?.({
         url: `/api/places/details`,
         params: params.toString(),
       });

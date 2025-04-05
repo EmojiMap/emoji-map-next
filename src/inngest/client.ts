@@ -8,8 +8,16 @@ type PlaceCreate = {
   };
 };
 
+type PlaceCreatePhotos = {
+  data: {
+    id: string;
+    photos: string[];
+  };
+};
+
 type Events = {
   'places/create': PlaceCreate;
+  'places/create-photos': PlaceCreatePhotos;
 };
 
 export const inngest = new Inngest({

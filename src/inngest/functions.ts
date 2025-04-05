@@ -72,3 +72,31 @@ export const createPlace = inngest.createFunction(
     return { message: `Place ${id} created` };
   }
 );
+
+// Creates a places photos in the database
+export const createPlacePhotos = inngest.createFunction(
+  { id: 'places/create-photos' },
+  { event: 'places/create-photos' },
+  async ({ event }) => {
+    const { id, photos } = event.data;
+
+    const place = await prisma.place.findUnique({
+      where: {
+        id,
+      },
+    });
+
+    if (!place) {
+      return { message: `Place ${id} not found` };
+    }
+
+    await prisma.photo.createMany({
+      data: photos.map((photo) => ({
+        url: photo,
+        placeId: place.id,
+      })),
+    });
+
+    return { message: `Place ${id} photos created` };
+  }
+);
