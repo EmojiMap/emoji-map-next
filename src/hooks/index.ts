@@ -8,6 +8,7 @@ import { useMerchantRemoveAssociationMutation } from './use-merchant-remove-asso
 import { useMerchantSearchMutation } from './use-merchant-search-mutation';
 import { useNavItems } from './use-nav-items';
 import { usePlaceDetailsQuery } from './use-place-details-query';
+import { usePlacePhotosQuery } from './use-place-photos-query';
 import { useRatingQuery } from './use-rating-query';
 import { useToggleFavoriteMutation } from './use-toggle-favorite-mutation';
 import { useUpdateRatingsMutation } from './use-update-ratings-mutation';
@@ -23,6 +24,7 @@ export {
   useMerchantSearchMutation,
   useNavItems,
   usePlaceDetailsQuery,
+  usePlacePhotosQuery,
   useRatingQuery,
   useToggleFavoriteMutation,
   useUpdateRatingsMutation,

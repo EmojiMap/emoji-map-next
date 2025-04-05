@@ -1,4 +1,6 @@
 import { PHOTOS_CONFIG } from '@/constants/photos';
+import { inngest } from '@/inngest/client';
+import { prisma } from '@/lib/db';
 import { redis } from '@/lib/redis';
 import type { PhotosResponse } from '@/types/google-photos';
 import { log } from '@/utils/log';
@@ -56,15 +58,25 @@ export async function fetchPlacePhotos({
   const cacheKey = `${PHOTOS_CONFIG.CACHE_KEY}:${PHOTOS_CONFIG.CACHE_VERSION}:${id}`;
   let cachedPhotos: URL[] | null = null;
 
-  // Check cache if not bypassing
   if (!bypassCache) {
+    // Check cache if not bypassing
     cachedPhotos = await redis.get<URL[]>(cacheKey);
+
+    // if photos are cached, return them + trigger non-blocking job for setting photos in the database
     if (cachedPhotos) {
       log.success('Cache hit', { cacheKey, photoCount: cachedPhotos.length });
 
       const data = cachedPhotos
         .slice(0, limit)
         .map((photoName) => new URL(photoName));
+
+      await inngest.send({
+        name: 'places/create-photos',
+        data: {
+          id,
+          photos: data.map((photo) => photo.toString()),
+        },
+      });
 
       return {
         data,
@@ -73,6 +85,29 @@ export async function fetchPlacePhotos({
       };
     }
     log.debug('Cache miss', { cacheKey });
+  }
+
+  // check if photos are already in the database
+  const dbPhotos = await prisma.photo.findMany({
+    where: {
+      placeId: id,
+    },
+  });
+
+  if (dbPhotos.length > 0) {
+    // set photos in cache
+    await redis.set(cacheKey, dbPhotos, {
+      ex: PHOTOS_CONFIG.CACHE_EXPIRATION_TIME,
+    });
+
+    // return photos from database
+    const data = dbPhotos.map((photo) => new URL(photo.url));
+
+    return {
+      data,
+      cacheHit: true,
+      count: dbPhotos.length,
+    };
   }
 
   // Fetch photo metadata
@@ -116,6 +151,15 @@ export async function fetchPlacePhotos({
   } else {
     log.warn('No photos were successfully fetched to cache', { placeId: id });
   }
+
+  // trigger non-blocking job for setting photos in the database
+  await inngest.send({
+    name: 'places/create-photos',
+    data: {
+      id,
+      photos: photos.map((photo) => photo.toString()),
+    },
+  });
 
   return {
     data: photos,
