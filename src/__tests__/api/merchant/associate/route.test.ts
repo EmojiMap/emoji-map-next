@@ -279,10 +279,11 @@ describe('Merchant Associate Route', () => {
         userRatingCount: mockGoogleDetails.userRatingCount,
         reviews: {
           createMany: {
-            data: mockGoogleDetails.reviews.map((review) => ({
-              ...review,
-              placeId: mockGoogleDetails.id,
-            })),
+            data: mockGoogleDetails.reviews.map((review) => {
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              const { placeId, ...rest } = review;
+              return rest;
+            }),
           },
         },
       },
