@@ -18,6 +18,8 @@ import {
   Users,
   Bike,
   MoreVertical,
+  Settings,
+  PlusCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -183,7 +185,21 @@ export default function MerchantDashboard() {
     <div className='container mx-auto py-8 space-y-8'>
       <div className='flex justify-between items-center'>
         <h1 className='text-4xl font-bold'>Merchant Dashboard</h1>
-        <Button variant='outline'>Settings</Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant='outline' size='icon'>
+              <Settings className='h-4 w-4' />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align='end'>
+            <DropdownMenuItem
+              onClick={() => dispatch({ type: 'OPEN_CLAIM_DIALOG' })}
+            >
+              <PlusCircle className='h-4 w-4 mr-2' />
+              Add New Place
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Stats Overview */}
