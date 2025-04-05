@@ -13,7 +13,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import { useNavItems } from '@/hooks/use-nav-items/use-nav-items';
+import { useNavItems } from '@/hooks';
 import { cn } from '@/lib/utils';
 import type { NavItem } from '@/types/nav-items';
 import { isNavItemActive } from '@/utils/nav/is-nav-item-active';

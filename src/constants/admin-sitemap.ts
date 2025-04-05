@@ -94,8 +94,18 @@ export const ADMIN_SIDEBAR_DATA: {
               isActive: false,
             },
             {
-              title: '/api/merchant/verify',
-              url: '/admin/api-reference/merchant/verify',
+              title: '/api/merchant/associate',
+              url: '/admin/api-reference/merchant/associate',
+              isActive: false,
+            },
+            {
+              title: '/api/merchant/reviews',
+              url: '/admin/api-reference/merchant/reviews',
+              isActive: false,
+            },
+            {
+              title: '/api/merchant/search',
+              url: '/admin/api-reference/merchant/search',
               isActive: false,
             },
           ],
