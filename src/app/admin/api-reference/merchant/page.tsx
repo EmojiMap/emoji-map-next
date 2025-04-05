@@ -212,7 +212,10 @@ export default function MerchantApiReferencePage() {
                         <div className='p-3 border rounded-md bg-muted/30'>
                           {renderDetailField('Merchant ID', data.merchant?.id)}
                           {renderDetailField('User ID', data.merchant?.userId)}
-                          {renderDetailField('Places Count', data.merchant?.places?.length || 0)}
+                          {renderDetailField(
+                            'Places Count',
+                            data.merchant?.places?.length || 0
+                          )}
                         </div>
                         {data.merchant?.places?.map((place) => (
                           <div
@@ -226,9 +229,18 @@ export default function MerchantApiReferencePage() {
                             <div className='space-y-1'>
                               {renderDetailField('ID', place.id)}
                               {renderDetailField('Address', place.address)}
-                              {renderDetailField('Allows Dogs', place.allowsDogs ? 'Yes' : 'No')}
-                              {renderDetailField('Delivery', place.delivery ? 'Yes' : 'No')}
-                              {renderDetailField('Rating Count', place.userRatingCount)}
+                              {renderDetailField(
+                                'Allows Dogs',
+                                place.allowsDogs ? 'Yes' : 'No'
+                              )}
+                              {renderDetailField(
+                                'Delivery',
+                                place.delivery ? 'Yes' : 'No'
+                              )}
+                              {renderDetailField(
+                                'Rating Count',
+                                place.userRatingCount
+                              )}
                             </div>
                           </div>
                         ))}
