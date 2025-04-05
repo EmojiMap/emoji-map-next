@@ -30,11 +30,13 @@ import {
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useFavoriteStatusQuery } from '@/hooks/use-favorite-status-query/use-favorite-status-query';
-import { usePlaceDetailsQuery } from '@/hooks/use-place-details-query/use-place-details-query';
-import { useRatingQuery } from '@/hooks/use-rating-query/use-rating-query';
-import { useToggleFavoriteMutation } from '@/hooks/use-toggle-favorite-mutation/use-toggle-favorite-mutation';
-import { useUpdateRatingsMutation } from '@/hooks/use-update-ratings-mutation/use-update-ratings-mutation';
+import {
+  useFavoriteStatusQuery,
+  usePlaceDetailsQuery,
+  useRatingQuery,
+  useToggleFavoriteMutation,
+  useUpdateRatingsMutation,
+} from '@/hooks';
 import { cn } from '@/lib/utils';
 
 // Form schema for place details

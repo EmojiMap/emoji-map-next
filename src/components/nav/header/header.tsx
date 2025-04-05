@@ -4,7 +4,7 @@ import { ThemedSignInButton } from '@/components/auth/themed-signin-button';
 import ThemedUserButton from '@/components/auth/themed-user-button';
 import { Button } from '@/components/ui/button';
 import { navItems } from '@/constants/routes';
-import { useNavItems } from '@/hooks/use-nav-items/use-nav-items';
+import { useNavItems } from '@/hooks';
 import { cn } from '@/lib/utils';
 import { DesktopNav } from '../desktop-nav/desktop-nav';
 import { Logo } from '../logo/logo';

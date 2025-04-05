@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { ClerkUserDataTable } from '@/components/clerk-user-data-table';
-import { useClerkUsers } from '@/hooks/use-clerk-users';
+import { useClerkUsers } from '@/hooks';
 
 export default function ClerkUsersPage() {
   const [pagination, setPagination] = useState({

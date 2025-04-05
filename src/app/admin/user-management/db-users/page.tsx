@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { UserDataTable } from '@/components/user-data-table';
-import { useDbUsers } from '@/hooks/use-db-users';
+import { useDbUsers } from '@/hooks';
 
 export default function DbUsersPage() {
   const [pagination, setPagination] = useState({
