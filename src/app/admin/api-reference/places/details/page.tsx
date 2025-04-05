@@ -2,13 +2,13 @@
 
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth } from '@clerk/nextjs';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { ChevronDownIcon, ChevronUpIcon, Star } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -30,10 +30,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useFavoriteStatusQuery } from '@/hooks/use-favorite-status-query/use-favorite-status-query';
+import { usePlaceDetailsQuery } from '@/hooks/use-place-details-query/use-place-details-query';
+import { useRatingQuery } from '@/hooks/use-rating-query/use-rating-query';
 import { useToggleFavoriteMutation } from '@/hooks/use-toggle-favorite-mutation/use-toggle-favorite-mutation';
 import { useUpdateRatingsMutation } from '@/hooks/use-update-ratings-mutation/use-update-ratings-mutation';
 import { cn } from '@/lib/utils';
-import type { DetailResponse } from '@/types/details';
 
 // Form schema for place details
 const detailsFormSchema = z.object({
@@ -94,7 +96,6 @@ function DetailsForm() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const router = useRouter();
-  const { getToken } = useAuth();
 
   // State for request details debug information
   const [lastRequest, setLastRequest] = useState<{
@@ -120,91 +121,22 @@ function DetailsForm() {
   const showRawJson = form.watch('showRawJson');
 
   // TanStack Query for place details
-  const placeDetailsQuery = useQuery({
-    queryKey: ['placeDetails', placeId, bypassCache],
-    queryFn: async () => {
-      if (!placeId) {
-        toast.error('Place ID is required');
-        throw new Error('ID is required');
-      }
-
-      const params = new URLSearchParams({
-        id: placeId,
-      });
-
-      if (bypassCache) {
-        params.append('bypassCache', 'true');
-      }
-
-      // Store the request details for debugging
-      setLastRequest({
-        url: `/api/places/details`,
-        params: params.toString(),
-      });
-
-      try {
-        const response = await fetch(
-          `/api/places/details?${params.toString()}`
-        );
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(
-            `API returned ${response.status}: ${response.statusText}. ${errorText}`
-          );
-        }
-
-        return response.json() as Promise<DetailResponse>;
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : 'Unknown error occurred';
-        toast.error(`Place details query failed: ${errorMessage}`);
-        throw error;
-      }
-    },
+  const placeDetailsQuery = usePlaceDetailsQuery({
+    placeId,
+    bypassCache,
+    setLastRequest,
     enabled: false, // Don't run automatically on mount or when placeId changes
-    retry: 1,
   });
 
   // Query for favorite status
-  const favoriteStatusQuery = useQuery({
-    queryKey: ['favoriteStatus', placeId],
-    queryFn: async () => {
-      if (!placeId) return null;
-      const token = await getToken();
-
-      const response = await fetch(`/api/places/favorite?id=${placeId}`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch favorite status');
-      }
-      return response.json();
-    },
+  const favoriteStatusQuery = useFavoriteStatusQuery({
     enabled: !!placeId && !!placeDetailsQuery.data?.data?.id,
+    placeId,
   });
 
   // Query for rating
-  const ratingQuery = useQuery({
-    queryKey: ['rating', placeId],
-    queryFn: async () => {
-      if (!placeId) return null;
-      const token = await getToken();
-
-      const response = await fetch(`/api/places/rating?id=${placeId}`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch rating');
-      }
-      return response.json();
-    },
+  const ratingQuery = useRatingQuery({
+    placeId,
     enabled: !!placeId && !!placeDetailsQuery.data?.data?.id,
   });
 
@@ -966,6 +898,21 @@ function DetailsForm() {
   );
 }
 
+const ErrorFallback = () => {
+  return (
+    <div className='flex flex-col items-center justify-center h-64 text-center'>
+      <p className='text-muted-foreground'>Error fetching place details ‼️</p>
+      <Button
+        onClick={() => {
+          window.location.reload();
+        }}
+      >
+        Try again
+      </Button>
+    </div>
+  );
+};
+
 // Main page component
 export default function PlacesDetailsPage() {
   return (
@@ -978,9 +925,11 @@ export default function PlacesDetailsPage() {
         </p>
       </div>
 
-      <Suspense fallback={<PlaceDetailsSkeleton />}>
-        <DetailsForm />
-      </Suspense>
+      <ErrorBoundary fallbackUI={<ErrorFallback />}>
+        <Suspense fallback={<PlaceDetailsSkeleton />}>
+          <DetailsForm />
+        </Suspense>
+      </ErrorBoundary>
     </div>
   );
 }

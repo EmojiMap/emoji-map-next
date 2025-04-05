@@ -2,7 +2,6 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { z } from 'zod';
-import { env } from '@/env';
 import { prisma } from '@/lib/db';
 import type { DetailResponse } from '@/types/details';
 import type { ErrorResponse } from '@/types/error-response';
@@ -21,9 +20,7 @@ const MerchantSchema = z.object({
 async function fetchPlaceDetails(
   placeId: string
 ): Promise<DetailResponse['data']> {
-  const response = await fetch(
-    `${env.NEXT_PUBLIC_SITE_URL}/api/places/details?id=${placeId}`
-  );
+  const response = await fetch(`/api/places/details?id=${placeId}`);
 
   if (!response.ok) {
     const errorData = (await response.json()) as ErrorResponse;
